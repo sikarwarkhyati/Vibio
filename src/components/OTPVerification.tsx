@@ -1,9 +1,10 @@
+// src/components/OTPVerification.tsx
 import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { Button } from './ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from './ui/input-otp';
+import { useToast } from '../hooks/use-toast';
+import api from '../lib/api';
 import { Clock, RefreshCw } from 'lucide-react';
 
 interface OTPVerificationProps {
@@ -22,17 +23,18 @@ const OTPVerification: React.FC<OTPVerificationProps> = ({
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
+  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes default
   const [isExpired, setIsExpired] = useState(false);
   const { toast } = useToast();
 
+  // Countdown timer
   useEffect(() => {
-    if (timeLeft > 0) {
-      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-      return () => clearTimeout(timer);
-    } else {
+    if (timeLeft <= 0) {
       setIsExpired(true);
+      return;
     }
+    const t = setTimeout(() => setTimeLeft(prev => prev - 1), 1000);
+    return () => clearTimeout(t);
   }, [timeLeft]);
 
   const formatTime = (seconds: number) => {
@@ -44,53 +46,59 @@ const OTPVerification: React.FC<OTPVerificationProps> = ({
   const handleVerifyOTP = async () => {
     if (otp.length !== 6) {
       toast({
-        title: "Invalid OTP",
-        description: "Please enter a 6-digit verification code.",
-        variant: "destructive",
+        title: 'Invalid OTP',
+        description: 'Please enter a 6-digit verification code.',
+        variant: 'destructive'
       });
       return;
     }
 
     if (isExpired) {
       toast({
-        title: "OTP Expired",
-        description: "This verification code has expired. Please request a new one.",
-        variant: "destructive",
+        title: 'OTP Expired',
+        description: 'This verification code has expired. Please request a new one.',
+        variant: 'destructive'
       });
       return;
     }
 
     setIsLoading(true);
-
     try {
-      const { error } = await supabase.auth.verifyOtp({
+      // POST to backend verify endpoint - adjust route if your API differs
+      const res = await api.post('/auth/verify-otp', {
         email,
         token: otp,
-        type: type === 'signup' ? 'signup' : 'email_change'
+        type
       });
 
-      if (error) {
-        // Invalidate OTP after first use attempt (even if wrong)
-        setIsExpired(true);
-        setTimeLeft(0);
-        
+      // handle backend response - accept success flags or 200 status
+      const success = res.data?.success ?? res.status === 200;
+      if (success) {
         toast({
-          title: "Verification Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Verification Successful",
-          description: "Your account has been verified successfully.",
+          title: 'Verification Successful',
+          description: 'Your account has been verified successfully.'
         });
         onVerified();
+      } else {
+        // treat as failure if backend returns success=false
+        setIsExpired(true);
+        setTimeLeft(0);
+        toast({
+          title: 'Verification Failed',
+          description: res.data?.message || 'Verification failed. Please try again.',
+          variant: 'destructive'
+        });
       }
-    } catch (error) {
+    } catch (err: any) {
+      // mark expired to prevent repeated attempts if desired
+      setIsExpired(true);
+      setTimeLeft(0);
+
+      const msg = err.response?.data?.message || err.message || 'An unexpected error occurred during verification.';
       toast({
-        title: "Error",
-        description: "An unexpected error occurred during verification.",
-        variant: "destructive",
+        title: 'Verification Failed',
+        description: msg,
+        variant: 'destructive'
       });
     } finally {
       setIsLoading(false);
@@ -99,33 +107,35 @@ const OTPVerification: React.FC<OTPVerificationProps> = ({
 
   const handleResendOTP = async () => {
     setIsResending(true);
-
     try {
-      const { error } = await supabase.auth.resend({
-        type: type === 'signup' ? 'signup' : 'email_change',
-        email
+      // POST to backend resend endpoint - adjust route if your API differs
+      const res = await api.post('/auth/resend-otp', {
+        email,
+        type
       });
 
-      if (error) {
-        toast({
-          title: "Resend Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        setTimeLeft(300); // Reset to 5 minutes
+      const success = res.data?.success ?? res.status === 200;
+      if (success) {
+        setTimeLeft(300); // reset timer to 5 minutes
         setIsExpired(false);
         setOtp('');
         toast({
-          title: "OTP Resent",
-          description: "A new verification code has been sent to your email.",
+          title: 'OTP Resent',
+          description: 'A new verification code has been sent to your email.'
+        });
+      } else {
+        toast({
+          title: 'Resend Failed',
+          description: res.data?.message || 'Failed to resend OTP.',
+          variant: 'destructive'
         });
       }
-    } catch (error) {
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to resend verification code.';
       toast({
-        title: "Error",
-        description: "Failed to resend verification code.",
-        variant: "destructive",
+        title: 'Error',
+        description: msg,
+        variant: 'destructive'
       });
     } finally {
       setIsResending(false);
@@ -141,6 +151,7 @@ const OTPVerification: React.FC<OTPVerificationProps> = ({
           <strong>{email}</strong>
         </CardDescription>
       </CardHeader>
+
       <CardContent className="space-y-6">
         <div className="space-y-4">
           <div className="flex justify-center">

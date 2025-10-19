@@ -1,11 +1,11 @@
 import React, { useEffect } from 'react';
 import { Calendar, MapPin, Users, Clock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { useAnalytics } from '@/hooks/useAnalytics';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import { Card, CardContent, CardFooter } from './ui/card';
+import { useAnalytics } from '../hooks/useAnalytics';
 import { useNavigate } from 'react-router-dom';
-import ContactOrganizerForm from '@/components/ContactOrganizerForm';
+import ContactOrganizerForm from './ContactOrganizerForm';
 
 interface EventCardProps {
   id: string;

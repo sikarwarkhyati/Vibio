@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",                          // Modern target, supports top-level await
+    "module": "Node16",                          // Matches Node's ESM standard
+    "moduleResolution": "Node16",                // Must align with module
+    "lib": ["ES2022"],                           // Updated lib for modern features
+    "esModuleInterop": true,                     // Allows default imports for CommonJS modules
+    "allowSyntheticDefaultImports": true,        // Keeps import style consistent
+    "resolveJsonModule": true,                   // Enables JSON imports
+    "allowImportingTsExtensions": true,          // Future-safe for TS extension imports
+    "isolatedModules": true,                     // Required for ESM correctness
+    "strict": true,                              // Keeps type checking strong
+    "skipLibCheck": true,                        // Avoids unnecessary lib type checks
+    "forceConsistentCasingInFileNames": true,    // Cross-platform safety
+    "outDir": "dist/backend",                    // Compiled output directory
+    "ignoreDeprecations": "6.0"                  // Silences TS 6.x+ warnings safely
+  },
+  "include": ["src/backend/**/*"]
+}

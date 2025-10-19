@@ -1,5 +1,6 @@
+// src/hooks/usePasswordSecurity.tsx
 import { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from './use-toast';
 
 interface PasswordCheckResult {
   isBreached: boolean;

@@ -1,4 +1,0 @@
-project_id = "opfkvdsrtrxycxevfkxx"
-
-[functions.contact-organizer]
-verify_jwt = false

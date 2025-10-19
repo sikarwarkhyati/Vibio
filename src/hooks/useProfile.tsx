@@ -1,11 +1,14 @@
+// src/hooks/useProfile.tsx
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from './use-toast';
+import { useAuth } from '../contexts/AuthContext';
+import { api } from '../lib/api';
+import { PaymentMethod } from '../types/payment'; // Assuming this correctly contains 'id: string'
 
-interface Profile {
-  id: string;
-  user_id: string;
+// Interface for data AS IT COMES FROM THE BACKEND (often uses _id)
+export interface Profile {
+  // NOTE: When fetching, the backend returns _id, but we transform it to id in the fetcher.
+  id: string; 
   display_name?: string;
   bio?: string;
   avatar_url?: string;
@@ -17,9 +20,8 @@ interface Profile {
   updated_at: string;
 }
 
-interface UserRewards {
+export interface UserRewards {
   id: string;
-  user_id: string;
   points: number;
   total_events_attended: number;
   badges: any;
@@ -27,17 +29,8 @@ interface UserRewards {
   updated_at: string;
 }
 
-interface PaymentMethod {
-  id: string;
-  user_id: string;
-  card_last_four: string;
-  card_type: string;
-  expires_at: string;
-  is_default: boolean;
-  created_at: string;
-}
-
 export const useProfile = () => {
+  // The state should hold the transformed (frontend-ready) data
   const [profile, setProfile] = useState<Profile | null>(null);
   const [rewards, setRewards] = useState<UserRewards | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -47,6 +40,7 @@ export const useProfile = () => {
   const { user } = useAuth();
 
   const fetchProfile = async () => {
+    // Note: It's cleaner to check for user inside the effect to avoid unnecessary fetches
     if (!user) {
       setLoading(false);
       return;
@@ -56,50 +50,30 @@ export const useProfile = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const res = await api.get(`/users/${user._id}/profile`);
+      const { profile: backendProfile, rewards: backendRewards, paymentMethods: backendMethods } = res.data;
 
-      if (profileError && profileError.code !== 'PGRST116') {
-        throw profileError;
+      // 1. Map Profile ID: Ensure the profile object itself has an 'id' field
+      const transformedProfile = {
+          ...backendProfile,
+          id: backendProfile._id || backendProfile.id,
       }
+      
+      // 2. Map Payment Methods ID: CRITICAL FIX for the PaymentMethod error
+      const transformedPaymentMethods = (backendMethods || []).map((method: any) => ({
+          ...method,
+          id: method._id || method.id, // Transform _id to id
+      })) as PaymentMethod[];
 
-      // Fetch rewards
-      const { data: rewardsData, error: rewardsError } = await supabase
-        .from('user_rewards')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
 
-      if (rewardsError && rewardsError.code !== 'PGRST116') {
-        throw rewardsError;
-      }
+      setProfile(transformedProfile);
+      setRewards(backendRewards); // Assuming rewards already uses 'id' or doesn't need transformation
+      setPaymentMethods(transformedPaymentMethods); // Use the transformed array
 
-      // Fetch payment methods
-      const { data: paymentData, error: paymentError } = await supabase
-        .from('payment_methods')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (paymentError) {
-        throw paymentError;
-      }
-
-      setProfile(profileData);
-      setRewards(rewardsData);
-      setPaymentMethods(paymentData || []);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch profile';
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch profile';
       setError(errorMessage);
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -107,113 +81,47 @@ export const useProfile = () => {
 
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!user) return;
-
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert(
-          {
-            user_id: user.id,
-            ...updates,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id' }
-        );
-
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: 'Success',
-        description: 'Profile updated successfully.',
-      });
-
-      await fetchProfile();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update profile';
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      await api.patch(`/users/${user._id}/profile`, updates);
+      toast({ title: 'Success', description: 'Profile updated successfully.' });
+      fetchProfile();
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to update profile';
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
       throw err;
     }
   };
 
-  const addPaymentMethod = async (paymentMethod: Omit<PaymentMethod, 'id' | 'user_id' | 'created_at'>) => {
+  const addPaymentMethod = async (paymentMethod: Omit<PaymentMethod, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!user) return;
-
     try {
-      const { error } = await supabase
-        .from('payment_methods')
-        .insert({
-          user_id: user.id,
-          ...paymentMethod,
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: 'Payment Method Added',
-        description: 'Your payment method has been added successfully.',
-      });
-
+      await api.post(`/users/${user._id}/payment-methods`, paymentMethod);
+      toast({ title: 'Payment Method Added', description: 'Your payment method has been added successfully.' });
       fetchProfile();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to add payment method';
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to add payment method';
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     }
   };
 
   const removePaymentMethod = async (paymentMethodId: string) => {
     try {
-      const { error } = await supabase
-        .from('payment_methods')
-        .delete()
-        .eq('id', paymentMethodId);
-
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: 'Payment Method Removed',
-        description: 'Your payment method has been removed successfully.',
-      });
-
+      // NOTE: Using a relative route assuming the payment method API handles auth/user context
+      await api.delete(`/payment-methods/${paymentMethodId}`); 
+      toast({ title: 'Payment Method Removed', description: 'Your payment method has been removed successfully.' });
       fetchProfile();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to remove payment method';
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to remove payment method';
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     }
   };
 
   useEffect(() => {
+    // Fetch data only when user object (from AuthContext) changes/loads
     fetchProfile();
-  }, [user]);
+  }, [user]); // Depend on user state change
 
-  return {
-    profile,
-    rewards,
-    paymentMethods,
-    loading,
-    error,
-    updateProfile,
-    addPaymentMethod,
-    removePaymentMethod,
-    refetch: fetchProfile,
-  };
+  return { profile, rewards, paymentMethods, loading, error, updateProfile, addPaymentMethod, removePaymentMethod, refetch: fetchProfile };
 };
 
 export default useProfile;

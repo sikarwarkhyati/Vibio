@@ -1,12 +1,28 @@
+// src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../lib/api';
+
+interface UserType {
+  _id: string;
+  email: string;
+  fullName?: string;
+  role?: string;
+  orgName?: string;
+  businessName?: string;
+}
+
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: UserType | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName?: string, role?: string, orgName?: string, businessName?: string) => Promise<{ error: any }>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName?: string,
+    role?: string,
+    orgName?: string,
+    businessName?: string
+  ) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
@@ -15,9 +31,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
 
@@ -26,90 +40,90 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<UserType | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  // Load user from backend if token exists
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-        
-        // Role-based redirect after login
-        if (event === 'SIGNED_IN' && session?.user) {
-          setTimeout(async () => {
-            try {
-              const { data: roleData } = await supabase
-                .from('user_roles')
-                .select('role')
-                .eq('user_id', session.user.id)
-                .single();
-              
-              const role = roleData?.role || 'user';
-              
-              // Navigate based on role
-              // Navigate based on role without full page reload
-              const redirectPath = role === 'organizer' ? '/dashboard' : role === 'user' ? '/user-dashboard' : '/';
-              if (window.location.pathname !== redirectPath) {
-                navigate(redirectPath, { replace: true });
-              }
-            } catch (error) {
-              console.error('Error fetching role:', error);
-              navigate('/', { replace: true });
-            }
-          }, 100);
+    const loadUser = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const res = await api.get('/auth/me');
+          setUser(res.data.user);
+        } catch (err) {
+          console.error('Failed to fetch user:', err);
+          localStorage.removeItem('token');
+          setUser(null);
         }
       }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
       setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    };
+    loadUser();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName?: string, role?: string, orgName?: string, businessName?: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: fullName,
-          role: role || 'user',
-          org_name: orgName,
-          business_name: businessName
-        },
-      },
-    });
-    return { error };
+  // Sign Up
+  const signUp = async (
+    email: string,
+    password: string,
+    fullName?: string,
+    role?: string,
+    orgName?: string,
+    businessName?: string
+  ) => {
+    try {
+      const res = await api.post('/auth/signup', {
+        email,
+        password,
+        fullName,
+        role,
+        orgName,
+        businessName,
+      });
+      return { error: null };
+    } catch (err: any) {
+      console.error('Signup error:', err.response?.data || err.message);
+      return { error: err.response?.data || err.message };
+    }
   };
 
+  // Sign In
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      const res = await api.post('/auth/login', { email, password });
+      const { token, user } = res.data;
+
+      // Store token and update state
+      localStorage.setItem('token', token);
+      setUser(user);
+
+      // Navigate based on role
+      const role = user.role || 'user';
+      const redirectPath =
+        role === 'organizer'
+          ? '/dashboard'
+          : role === 'user'
+          ? '/user-dashboard'
+          : '/';
+      navigate(redirectPath, { replace: true });
+
+      return { error: null };
+    } catch (err: any) {
+      console.error('Login error:', err.response?.data || err.message);
+      return { error: err.response?.data || err.message };
+    }
   };
 
+  // Sign Out
   const signOut = async () => {
-    await supabase.auth.signOut();
+    localStorage.removeItem('token');
+    setUser(null);
     navigate('/role-auth', { replace: true });
   };
 
-  const value = {
+  const value: AuthContextType = {
     user,
-    session,
     loading,
     signUp,
     signIn,

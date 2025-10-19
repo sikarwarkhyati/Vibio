@@ -1,26 +1,28 @@
+// src/components/QRTicketScanner.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import QrScanner from 'qr-scanner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import { Badge } from '../components/ui/badge';
 import { Camera, X, CheckCircle, AlertCircle, Users } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '../hooks/use-toast';
+import api from '../lib/api';
 import { format } from 'date-fns';
 
 interface QRScannerProps {
   open: boolean;
   onClose: () => void;
   eventId?: string;
+  organizerId?: string;
 }
 
 interface ScannedTicket {
   ticketCode: string;
   eventId: string;
-  eventTitle: string;
-  eventDate: string;
+  eventTitle?: string;
+  eventDate?: string;
   userId?: string;
   type: string;
   timestamp: number;
@@ -54,6 +56,7 @@ const QRTicketScanner: React.FC<QRScannerProps> = ({ open, onClose, eventId }) =
         scannerRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const initializeScanner = async () => {
@@ -64,9 +67,8 @@ const QRTicketScanner: React.FC<QRScannerProps> = ({ open, onClose, eventId }) =
         videoRef.current,
         (result) => handleScanResult(result.data),
         {
-          onDecodeError: (err) => {
-            // Silent error handling for continuous scanning
-            console.log('Scan error:', err);
+          onDecodeError: () => {
+            /* ignore decode errors quietly */
           },
           highlightScanRegion: true,
           highlightCodeOutline: true,
@@ -91,7 +93,6 @@ const QRTicketScanner: React.FC<QRScannerProps> = ({ open, onClose, eventId }) =
   const handleScanResult = async (data: string) => {
     try {
       const parsedData: ScannedTicket = JSON.parse(data);
-      
       if (parsedData.type !== 'ticket') {
         setError('Invalid QR code. This is not a valid ticket.');
         return;
@@ -99,11 +100,8 @@ const QRTicketScanner: React.FC<QRScannerProps> = ({ open, onClose, eventId }) =
 
       setScanResult(parsedData);
       setIsScanning(false);
-      if (scannerRef.current) {
-        scannerRef.current.stop();
-      }
+      if (scannerRef.current) scannerRef.current.stop();
 
-      // Validate the ticket
       await validateTicket(parsedData);
     } catch (err) {
       setError('Invalid QR code format');
@@ -113,78 +111,36 @@ const QRTicketScanner: React.FC<QRScannerProps> = ({ open, onClose, eventId }) =
 
   const validateTicket = async (ticket: ScannedTicket) => {
     try {
-      // Check if the ticket exists in the database
-      const { data: booking, error: bookingError } = await supabase
-        .from('bookings')
-        .select(`
-          *,
-          event:events (
-            id,
-            title,
-            date,
-            location,
-            venue,
-            organizer_id
-          )
-        `)
-        .eq('ticket_code', ticket.ticketCode)
-        .maybeSingle();
+      // Use backend verification endpoint. Expect response { booking, event } or 404-like
+      const res = await api.post('/tickets/verify', {
+        ticket_code: ticket.ticketCode,
+        event_id: ticket.eventId,
+        current_event_id: eventId, // optional, backend can check mismatch
+      });
 
-      if (bookingError) {
-        throw bookingError;
-      }
+      const { booking, event } = res.data;
 
       if (!booking) {
-        setValidationResult({
-          isValid: false,
-          error: 'Ticket not found in database'
-        });
+        setValidationResult({ isValid: false, error: 'Ticket not found in database' });
         return;
       }
 
-      // Check if the event matches (if eventId is provided)
-      if (eventId && booking.event.id !== eventId) {
-        setValidationResult({
-          isValid: false,
-          error: 'This ticket is not valid for the current event'
-        });
+      // If eventId is provided check match
+      if (eventId && String(event._id ?? event.id) !== String(eventId)) {
+        setValidationResult({ isValid: false, error: 'This ticket is not valid for the current event' });
         return;
       }
 
-      // Check ticket status
       if (booking.status === 'cancelled') {
-        setValidationResult({
-          isValid: false,
-          error: 'This ticket has been cancelled'
-        });
+        setValidationResult({ isValid: false, error: 'This ticket has been cancelled' });
         return;
       }
 
-      // Check if event date has passed (optional validation)
-      const eventDate = new Date(booking.event.date);
-      const now = new Date();
-      if (eventDate < now) {
-        // Event has passed, but ticket might still be valid for entry
-        // You can customize this logic based on your requirements
-      }
-
-      setValidationResult({
-        isValid: true,
-        ticket,
-        booking,
-        event: booking.event
-      });
-
-      toast({
-        title: 'Valid Ticket!',
-        description: `Ticket verified for ${booking.event.title}`,
-      });
-    } catch (error) {
-      console.error('Ticket validation error:', error);
-      setValidationResult({
-        isValid: false,
-        error: 'Error validating ticket. Please try again.'
-      });
+      setValidationResult({ isValid: true, ticket, booking, event });
+      toast({ title: 'Valid Ticket!', description: `Ticket verified for ${event?.title ?? 'event'}` });
+    } catch (err: any) {
+      console.error('Ticket validation error:', err);
+      setValidationResult({ isValid: false, error: err.response?.data?.message ?? 'Error validating ticket. Please try again.' });
     }
   };
 
@@ -192,9 +148,7 @@ const QRTicketScanner: React.FC<QRScannerProps> = ({ open, onClose, eventId }) =
     setScanResult(null);
     setValidationResult(null);
     setError('');
-    if (videoRef.current && !isScanning) {
-      initializeScanner();
-    }
+    if (videoRef.current && !isScanning) initializeScanner();
   };
 
   const handleClose = () => {
@@ -220,16 +174,11 @@ const QRTicketScanner: React.FC<QRScannerProps> = ({ open, onClose, eventId }) =
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Camera Preview */}
           {!scanResult && (
             <Card>
               <CardContent className="p-4">
                 <div className="relative">
-                  <video
-                    ref={videoRef}
-                    className="w-full h-64 object-cover rounded-lg bg-black"
-                    style={{ transform: 'scaleX(-1)' }} // Mirror the video
-                  />
+                  <video ref={videoRef} className="w-full h-64 object-cover rounded-lg bg-black" style={{ transform: 'scaleX(-1)' }} />
                   {!isScanning && !error && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
                       <Button onClick={initializeScanner}>
@@ -240,9 +189,7 @@ const QRTicketScanner: React.FC<QRScannerProps> = ({ open, onClose, eventId }) =
                   )}
                   {isScanning && (
                     <div className="absolute top-2 right-2">
-                      <Badge variant="secondary" className="bg-green-100 text-green-800">
-                        Scanning...
-                      </Badge>
+                      <Badge variant="secondary" className="bg-green-100 text-green-800">Scanning...</Badge>
                     </div>
                   )}
                 </div>
@@ -250,7 +197,6 @@ const QRTicketScanner: React.FC<QRScannerProps> = ({ open, onClose, eventId }) =
             </Card>
           )}
 
-          {/* Error Display */}
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -258,7 +204,6 @@ const QRTicketScanner: React.FC<QRScannerProps> = ({ open, onClose, eventId }) =
             </Alert>
           )}
 
-          {/* Scan Result */}
           {scanResult && validationResult && (
             <Card>
               <CardHeader>
@@ -276,50 +221,34 @@ const QRTicketScanner: React.FC<QRScannerProps> = ({ open, onClose, eventId }) =
                   )}
                 </CardTitle>
               </CardHeader>
+
               <CardContent className="space-y-3">
                 {validationResult.isValid && validationResult.booking ? (
                   <div className="space-y-2">
+                    <div><strong>Event:</strong> {validationResult.event?.title}</div>
+                    <div><strong>Date:</strong> {validationResult.event?.date ? format(new Date(validationResult.event.date), 'PPP p') : '—'}</div>
+                    <div><strong>Location:</strong> {validationResult.event?.venue || validationResult.event?.location}</div>
+                    <div><strong>Ticket Code:</strong> {validationResult.booking.ticket_code}</div>
                     <div>
-                      <strong>Event:</strong> {validationResult.event.title}
-                    </div>
-                    <div>
-                      <strong>Date:</strong> {format(new Date(validationResult.event.date), 'PPP p')}
-                    </div>
-                    <div>
-                      <strong>Location:</strong> {validationResult.event.venue || validationResult.event.location}
-                    </div>
-                    <div>
-                      <strong>Ticket Code:</strong> {validationResult.booking.ticket_code}
-                    </div>
-                    <div>
-                      <strong>Status:</strong> 
-                      <Badge variant="outline" className="ml-2 bg-green-100 text-green-800">
-                        {validationResult.booking.status}
-                      </Badge>
+                      <strong>Status:</strong>
+                      <Badge variant="outline" className="ml-2 bg-green-100 text-green-800">{validationResult.booking.status}</Badge>
                     </div>
                   </div>
                 ) : (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      {validationResult.error || 'Unknown validation error'}
-                    </AlertDescription>
+                    <AlertDescription>{validationResult.error || 'Unknown validation error'}</AlertDescription>
                   </Alert>
                 )}
 
                 <div className="flex gap-2 pt-2">
-                  <Button onClick={resetScanner} variant="outline" className="flex-1">
-                    Scan Another
-                  </Button>
-                  <Button onClick={handleClose} className="flex-1">
-                    Done
-                  </Button>
+                  <Button onClick={resetScanner} variant="outline" className="flex-1">Scan Another</Button>
+                  <Button onClick={handleClose} className="flex-1">Done</Button>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Instructions */}
           {!scanResult && !error && (
             <Alert>
               <Users className="h-4 w-4" />

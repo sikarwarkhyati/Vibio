@@ -1,12 +1,27 @@
+// src/components/OrganizerAnalyticsDashboard.tsx
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { DollarSign, Users, Calendar, TrendingUp, UserCheck, Clock } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Progress } from '../components/ui/progress';
+import { Badge } from '../components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import api from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../hooks/use-toast';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+} from 'recharts';
+import { DollarSign, Users, Calendar, TrendingUp, UserCheck } from 'lucide-react';
 
 interface AnalyticsData {
   totalEvents: number;
@@ -22,114 +37,176 @@ interface AnalyticsData {
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--primary-glow))', '#8884d8', '#82ca9d', '#ffc658'];
 
-const OrganizerAnalyticsDashboard: React.FC = () => {
+interface OrganizerAnalyticsDashboardProps {
+  organizerId?: string;
+}
+
+const OrganizerAnalyticsDashboard: React.FC<OrganizerAnalyticsDashboardProps> = ({ organizerId }) => {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (user) {
-      fetchAnalytics();
-    }
-  }, [user]);
+    // fetch when component mounts or when organizerId / user changes
+    fetchAnalytics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizerId, user]);
 
   const fetchAnalytics = async () => {
-    if (!user) return;
+    // determine organizer id (prop overrides auth user)
+    const id = organizerId || (user as any)?._id || (user as any)?.id;
+    if (!id) {
+      setAnalytics(null);
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
 
-      // Fetch organizer's events
-      const { data: events, error: eventsError } = await supabase
-        .from('events')
-        .select('*')
-        .eq('organizer_id', user.id);
+      // 1) Fetch events for organizer
+      // Try organizer endpoints with fallbacks
+      let eventsRes;
+      try {
+        eventsRes = await api.get(`/organizers/${id}/events`);
+      } catch (e) {
+        eventsRes = await api.get('/events', { params: { organizerId: id } });
+      }
 
-      if (eventsError) throw eventsError;
+      const eventsData: any[] =
+        (eventsRes?.data && (Array.isArray(eventsRes.data) ? eventsRes.data : eventsRes.data.events)) || [];
 
-      const eventIds = events?.map(e => e.id) || [];
+      // Normalize event ids (handle MongoDB _id)
+      const normalizedEvents = eventsData.map((e: any) => ({
+        id: e._id ?? e.id,
+        title: e.title,
+        date: e.date,
+        price: e.price ?? 0,
+      }));
 
-      // Fetch bookings for organizer's events
-      const { data: bookings, error: bookingsError } = await supabase
-        .from('bookings')
-        .select(`
-          *,
-          event:events!inner(title, price)
-        `)
-        .in('event_id', eventIds);
+      const eventIds = normalizedEvents.map((e: any) => e.id).filter(Boolean);
 
-      if (bookingsError) throw bookingsError;
+      // 2) Fetch bookings for those events
+      let bookingsRes;
+      try {
+        // Prefer an endpoint that accepts multiple event ids
+        bookingsRes = await api.get('/bookings', { params: { eventIds: eventIds.join(',') } });
+      } catch (e) {
+        // Fallback: Try organizer bookings endpoint
+        try {
+          bookingsRes = await api.get(`/organizers/${id}/bookings`);
+        } catch (e2) {
+          bookingsRes = { data: [] };
+        }
+      }
 
-      // Calculate analytics
-      const totalEvents = events?.length || 0;
-      const totalBookings = bookings?.length || 0;
-      const totalRevenue = bookings?.reduce((sum, booking) => {
-        const eventPrice = booking.event?.price || 0;
-        return sum + Number(eventPrice);
-      }, 0) || 0;
+      const bookingsData: any[] =
+        (bookingsRes?.data && (Array.isArray(bookingsRes.data) ? bookingsRes.data : bookingsRes.data.bookings)) ||
+        [];
 
-      // Gender distribution
-      const genderDistribution = bookings?.reduce(
-        (acc, booking) => {
-          const gender = booking.gender || 'other';
-          acc[gender as keyof typeof acc] = (acc[gender as keyof typeof acc] || 0) + 1;
+      // Calculate totals
+      const totalEvents = normalizedEvents.length;
+      const totalBookings = bookingsData.length;
+      const totalRevenue =
+        bookingsData.reduce((sum, b) => {
+          // try to pull price from booking.event.price, or booking.price, or match by event id
+          const price =
+            b.event?.price ??
+            b.price ??
+            normalizedEvents.find((ev: any) => (b.event?.id ?? b.event_id ?? b.event) === ev.id)?.price ??
+            0;
+          return sum + Number(price || 0);
+        }, 0) || 0;
+
+      // Average rating - if bookings contain rating, compute it; otherwise simplified
+      const ratings = bookingsData.map((b) => b.rating || b.review?.rating).filter((r) => typeof r === 'number');
+      const averageRating =
+        ratings.length > 0 ? ratings.reduce((a: number, c: number) => a + c, 0) / ratings.length : 4.2;
+
+      // Gender distribution (look for booking.user.gender or booking.gender)
+      const genderDistribution = bookingsData.reduce(
+        (acc: { male: number; female: number; other: number }, booking) => {
+          const gender =
+            (booking.user && booking.user.gender) || booking.gender || (booking.user_profile && booking.user_profile.gender) || 'other';
+          const key = gender === 'male' ? 'male' : gender === 'female' ? 'female' : 'other';
+          acc[key] = (acc[key] || 0) + 1;
           return acc;
         },
         { male: 0, female: 0, other: 0 }
-      ) || { male: 0, female: 0, other: 0 };
+      );
 
-      // Age distribution
-      const ageDistribution = bookings?.reduce((acc, booking) => {
-        const ageGroup = booking.age_group || 'Unknown';
-        acc[ageGroup] = (acc[ageGroup] || 0) + 1;
+      // Age distribution - look for booking.user.age or booking.age_group or booking.user_profile.date_of_birth
+      const ageDistribution = bookingsData.reduce((acc: { [k: string]: number }, booking) => {
+        let bucket = 'Unknown';
+        if (booking.age_group) {
+          bucket = booking.age_group;
+        } else if (booking.user?.age) {
+          bucket = String(Math.floor(booking.user.age / 10) * 10) + 's';
+        } else if (booking.user_profile?.date_of_birth) {
+          try {
+            const dob = new Date(booking.user_profile.date_of_birth);
+            const age = Math.floor((Date.now() - dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25));
+            bucket = age < 18 ? 'Under 18' : age < 30 ? '18-29' : age < 50 ? '30-49' : '50+';
+          } catch (e) {
+            bucket = 'Unknown';
+          }
+        }
+        acc[bucket] = (acc[bucket] || 0) + 1;
         return acc;
-      }, {} as { [key: string]: number }) || {};
+      }, {} as { [k: string]: number });
 
-      // Popular events
-      const eventBookingCounts = bookings?.reduce((acc, booking) => {
-        const eventTitle = booking.event?.title || 'Unknown';
-        acc[eventTitle] = (acc[eventTitle] || 0) + 1;
-        return acc;
-      }, {} as { [key: string]: number }) || {};
-
-      const popularEvents = Object.entries(eventBookingCounts)
+      // Popular events (count bookings grouped by event title)
+      const bookingCountsByEvent: { [k: string]: number } = {};
+      bookingsData.forEach((b) => {
+        const title =
+          b.event?.title || normalizedEvents.find((ev: any) => ev.id === (b.event?.id ?? b.event_id))?.title || 'Unknown';
+        bookingCountsByEvent[title] = (bookingCountsByEvent[title] || 0) + 1;
+      });
+      const popularEvents = Object.entries(bookingCountsByEvent)
         .map(([title, bookings]) => ({ title, bookings }))
         .sort((a, b) => b.bookings - a.bookings)
         .slice(0, 5);
 
-      // Monthly revenue (simplified - last 6 months)
+      // Monthly revenue (simple distribution over last 6 months)
       const monthlyRevenue = Array.from({ length: 6 }, (_, i) => {
         const date = new Date();
-        date.setMonth(date.getMonth() - i);
+        date.setMonth(date.getMonth() - (5 - i));
         return {
           month: date.toLocaleDateString('en-US', { month: 'short' }),
-          revenue: Math.floor(totalRevenue / 6) // Simplified calculation
+          revenue: Math.round(totalRevenue / 6),
         };
-      }).reverse();
+      });
 
-      // Bookings trend (last 7 days)
+      // Bookings trend last 7 days (approximation)
       const bookingsTrend = Array.from({ length: 7 }, (_, i) => {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
         return {
-          date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          bookings: Math.floor(Math.random() * 10) // Simplified - in real app, calculate actual bookings per day
+          date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          bookings: Math.floor(Math.random() * 10), // if you have per-day data, replace this
         };
-      }).reverse();
+      });
 
       setAnalytics({
         totalEvents,
         totalBookings,
         totalRevenue,
-        averageRating: 4.2, // Simplified
+        averageRating,
         genderDistribution,
-        ageDistribution,
+        ageDistribution: ageDistribution,
         monthlyRevenue,
         popularEvents,
-        bookingsTrend
+        bookingsTrend,
       });
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
+    } catch (err: any) {
+      console.error('Error fetching analytics:', err);
+      toast({
+        title: 'Analytics Error',
+        description: err.response?.data?.message || err.message || 'Failed to load analytics',
+        variant: 'destructive',
+      });
+      setAnalytics(null);
     } finally {
       setLoading(false);
     }
@@ -138,7 +215,7 @@ const OrganizerAnalyticsDashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
@@ -156,12 +233,12 @@ const OrganizerAnalyticsDashboard: React.FC = () => {
   const genderChartData = [
     { name: 'Male', value: analytics.genderDistribution.male, color: COLORS[0] },
     { name: 'Female', value: analytics.genderDistribution.female, color: COLORS[1] },
-    { name: 'Other', value: analytics.genderDistribution.other, color: COLORS[2] }
-  ].filter(item => item.value > 0);
+    { name: 'Other', value: analytics.genderDistribution.other, color: COLORS[2] },
+  ].filter((item) => item.value > 0);
 
   const ageChartData = Object.entries(analytics.ageDistribution).map(([age, count]) => ({
     age,
-    count
+    count,
   }));
 
   return (
@@ -177,6 +254,7 @@ const OrganizerAnalyticsDashboard: React.FC = () => {
             <div className="text-2xl font-bold">{analytics.totalEvents}</div>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
@@ -186,22 +264,24 @@ const OrganizerAnalyticsDashboard: React.FC = () => {
             <div className="text-2xl font-bold">{analytics.totalBookings}</div>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${analytics.totalRevenue.toFixed(2)}</div>
+            <div className="text-2xl font-bold">₹{analytics.totalRevenue.toFixed(2)}</div>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Avg. Rating</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analytics.averageRating}</div>
+            <div className="text-2xl font-bold">{analytics.averageRating.toFixed(1)}</div>
           </CardContent>
         </Card>
       </div>
@@ -222,15 +302,7 @@ const OrganizerAnalyticsDashboard: React.FC = () => {
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
-                    <Pie
-                      data={genderChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
+                    <Pie data={genderChartData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
                       {genderChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
@@ -239,12 +311,9 @@ const OrganizerAnalyticsDashboard: React.FC = () => {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="flex justify-center gap-4 mt-4">
-                  {genderChartData.map((entry, index) => (
+                  {genderChartData.map((entry) => (
                     <div key={entry.name} className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: entry.color }}
-                      />
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
                       <span className="text-sm">{entry.name}: {entry.value}</span>
                     </div>
                   ))}
@@ -258,7 +327,7 @@ const OrganizerAnalyticsDashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={ageChartData}>
+                  <BarChart data={ageChartData as any}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="age" />
                     <YAxis />

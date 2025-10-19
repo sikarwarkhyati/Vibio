@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import Navbar from '@/components/Navbar';
-import HeroSearchBar from '@/components/HeroSearchBar';
-import EventGrid from '@/components/EventGrid';
-import TrendingEvents from '@/components/TrendingEvents';
-import EventFilters from '@/components/EventFilters';
-import EventsMap from '@/components/EventsMap';
-import { useEvents } from '@/hooks/useEvents';
-import { useAnalytics } from '@/hooks/useAnalytics';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
+import Navbar from '../components/Navbar';
+import HeroSearchBar from '../components/HeroSearchBar';
+import EventGrid from '../components/EventGrid';
+import TrendingEvents from '../components/TrendingEvents';
+import EventFilters from '../components/EventFilters';
+import EventsMap from '../components/EventsMap';
+import { useEvents } from '../hooks/useEvents';
+import { useAnalytics } from '../hooks/useAnalytics';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Button } from '../components/ui/button';
 import { Filter, Clock } from 'lucide-react';
-import Footer from '@/components/Footer';
+import Footer from '../components/Footer';
 
 const Index = () => {
   const { user, loading } = useAuth();

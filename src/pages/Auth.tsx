@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
-import { PasswordInput } from '@/components/ui/password-input';
-import CaptchaWrapper, { CaptchaWrapperRef } from '@/components/CaptchaWrapper';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { useToast } from '../hooks/use-toast';
+import { PasswordInput } from '../components/ui/password-input';
+import CaptchaWrapper, { CaptchaWrapperRef } from '../components/CaptchaWrapper';
 
 const Auth = () => {
   const { user, signIn, signUp, loading } = useAuth();

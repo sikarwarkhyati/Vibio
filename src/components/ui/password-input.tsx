@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Input } from './input';
+import { Button } from './button';
 import { Eye, EyeOff, Shield, AlertTriangle } from 'lucide-react';
-import { usePasswordSecurity } from '@/hooks/usePasswordSecurity';
-import { cn } from '@/lib/utils';
+import { usePasswordSecurity } from '../../hooks/usePasswordSecurity';
+import { cn } from '../../lib/utils';
 
 interface PasswordInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   showStrengthIndicator?: boolean;

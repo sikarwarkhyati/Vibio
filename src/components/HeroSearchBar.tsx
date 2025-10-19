@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Search, MapPin, Calendar } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 interface HeroSearchBarProps {
   onSearch: (query: string, category: string, location: string) => void;

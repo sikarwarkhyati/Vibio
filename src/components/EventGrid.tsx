@@ -1,3 +1,4 @@
+// src/components/EventGrid.tsx
 import React from 'react';
 import EventCard from './EventCard';
 

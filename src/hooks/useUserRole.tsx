@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+// src/hooks/useUserRole.tsx
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { api } from '../lib/api';
 
 export type UserRole = 'user' | 'organizer' | 'admin' | 'vendor' | 'sponsor';
 
@@ -10,7 +11,7 @@ export const useUserRole = () => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  const fetchUserRole = async () => {
+  const fetchUserRole = useCallback(async () => {
     if (!user) {
       setUserRole(null);
       setLoading(false);
@@ -21,30 +22,18 @@ export const useUserRole = () => {
       setLoading(true);
       setError(null);
 
-      const { data, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
-
-      if (roleError) {
-        throw roleError;
-      }
-
-      setUserRole(data?.role as UserRole || 'user');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user role';
+      const res = await api.get(`/users/${user._id}/role`);
+      setUserRole(res.data.role || 'user');
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch user role';
       setError(errorMessage);
-      setUserRole('user'); // Default to user role
+      setUserRole('user');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
-  const hasRole = (role: UserRole) => {
-    return userRole === role;
-  };
-
+  const hasRole = (role: UserRole) => userRole === role;
   const isOrganizer = () => hasRole('organizer');
   const isAdmin = () => hasRole('admin');
   const isUser = () => hasRole('user');
@@ -53,18 +42,7 @@ export const useUserRole = () => {
 
   useEffect(() => {
     fetchUserRole();
-  }, [user]);
+  }, [fetchUserRole]);
 
-  return {
-    userRole,
-    loading,
-    error,
-    hasRole,
-    isOrganizer,
-    isAdmin,
-    isUser,
-    isVendor,
-    isSponsor,
-    refetch: fetchUserRole
-  };
+  return { userRole, loading, error, hasRole, isOrganizer, isAdmin, isUser, isVendor, isSponsor, refetch: fetchUserRole };
 };

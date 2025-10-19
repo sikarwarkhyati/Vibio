@@ -1,0 +1,11 @@
+{
+  "watch": ["src/backend"],
+  "ext": "ts,json",
+  "ignore": ["node_modules"],
+  "execMap": {
+    "ts": "node --loader ts-node/esm"
+  },
+  "env": {
+    "TS_NODE_PROJECT": "tsconfig.app.json"
+  }
+}

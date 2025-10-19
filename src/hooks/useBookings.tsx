@@ -1,16 +1,17 @@
+// src/hooks/useBookings.tsx
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from './use-toast';
+import { useAuth } from '../contexts/AuthContext';
+import { api } from '../lib/api';
 
-interface BookingWithEvent {
-  id: string;
+export interface BookingWithEvent {
+  id: string; // transformed from _id
   ticket_code: string;
   status: string;
   created_at: string;
   user_id: string;
   event: {
-    id: string;
+    id: string; // transformed from _id
     title: string;
     description?: string;
     date: string;
@@ -39,73 +40,39 @@ export const useBookings = () => {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase
-        .from('bookings')
-        .select(`
-          id,
-          ticket_code,
-          status,
-          created_at,
-          user_id,
-          event:events (
-            id,
-            title,
-            description,
-            date,
-            location,
-            venue,
-            event_type,
-            image_url,
-            price
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      const res = await api.get(`/bookings/user/${user._id}`);
+      const fetched = res.data.bookings || [];
 
-      if (error) {
-        throw error;
-      }
+      // ✅ Transform _id → id (for both booking and nested event)
+      const transformed = fetched.map((b: any) => ({
+        ...b,
+        id: b._id,
+        event: {
+          ...b.event,
+          id: b.event?._id,
+        },
+      }));
 
-      setBookings(data || []);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch bookings';
+      setBookings(transformed);
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch bookings';
       setError(errorMessage);
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
   const cancelBooking = async (bookingId: string) => {
+    if (!user) return;
+
     try {
-      const { error } = await supabase
-        .from('bookings')
-        .update({ status: 'cancelled' })
-        .eq('id', bookingId)
-        .eq('user_id', user?.id);
-
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: 'Booking Cancelled',
-        description: 'Your booking has been cancelled successfully.',
-      });
-
-      // Refresh bookings
+      await api.patch(`/bookings/${bookingId}/cancel`);
+      toast({ title: 'Booking Cancelled', description: 'Your booking has been cancelled successfully.' });
       fetchBookings();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to cancel booking';
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to cancel booking';
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     }
   };
 
@@ -113,14 +80,7 @@ export const useBookings = () => {
     fetchBookings();
   }, [user]);
 
-  return {
-    bookings,
-    loading,
-    error,
-    fetchBookings,
-    cancelBooking,
-    refetch: fetchBookings,
-  };
+  return { bookings, loading, error, fetchBookings, cancelBooking, refetch: fetchBookings };
 };
 
 export default useBookings;

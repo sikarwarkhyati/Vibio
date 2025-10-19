@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useEvents } from '@/hooks/useEvents';
+import { useEvents } from '../hooks/useEvents';
 import EventCard from './EventCard';
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from './ui/carousel';
 import { TrendingUp } from 'lucide-react';
 
 interface TrendingEventsProps {

@@ -1,18 +1,18 @@
 import React from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useUserRole } from '@/hooks/useUserRole';
+import { useAuth } from '../contexts/AuthContext';
+import { useUserRole } from '../hooks/useUserRole';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, User, Calendar, LogOut, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+} from './ui/dropdown-menu';
+import { Avatar, AvatarFallback } from './ui/avatar';
 
 interface NavbarProps {
   onSearch?: (query: string) => void;

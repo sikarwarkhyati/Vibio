@@ -1,17 +1,19 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+// src/App.tsx
+import { Toaster } from "./components/ui/toaster";
+import { Toaster as Sonner } from "./components/ui/sonner";
+import { TooltipProvider } from "./components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import RoleBasedAuth from "./pages/RoleBasedAuth";
 import MyTickets from "./pages/MyTickets";
 import OrganizerDashboard from "./pages/OrganizerDashboard";
 import UserDashboard from "./pages/UserDashboard";
-import VendorDashboard from "./pages/VendorDashboard";
-import SponsorDashboard from "./pages/SponsorDashboard";
+import AdminDashboard from "./pages/AdminDashboard"; // <-- new
+
 import EventDetail from "./pages/EventDetail";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
@@ -40,8 +42,10 @@ const App = () => (
             <Route path="/bookings" element={<MyTickets />} />
             <Route path="/dashboard" element={<OrganizerDashboard />} />
             <Route path="/user-dashboard" element={<UserDashboard />} />
-            <Route path="/vendor-dashboard" element={<VendorDashboard />} />
-            <Route path="/sponsor-dashboard" element={<SponsorDashboard />} />
+
+            {/* Admin panel */}
+            <Route path="/admin" element={<AdminDashboard />} />
+
             <Route path="/event/:id" element={<EventDetail />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/about" element={<About />} />
@@ -52,7 +56,8 @@ const App = () => (
             <Route path="/faq" element={<FAQ />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
+            {/* catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </TooltipProvider>

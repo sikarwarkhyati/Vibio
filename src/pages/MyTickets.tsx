@@ -1,14 +1,14 @@
 import React from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useBookings } from '@/hooks/useBookings';
+import { useAuth } from '../contexts/AuthContext';
+import { useBookings } from '../hooks/useBookings';
 import { Navigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import Navbar from '@/components/Navbar';
-import TicketQRCode from '@/components/TicketQRCode';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { Separator } from '../components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import Navbar from '../components/Navbar';
+import TicketQRCode from '../components/TicketQRCode';
 import { Calendar, MapPin, Ticket, Clock, DollarSign, QrCode, Download } from 'lucide-react';
 import { format } from 'date-fns';
 

@@ -1,9 +1,10 @@
+// src/hooks/usePastEvents.tsx
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from './use-toast';
+import { useAuth } from '../contexts/AuthContext';
+import { api } from '../lib/api';
 
-interface PastEventBooking {
+export interface PastEventBooking {
   id: string;
   ticket_code: string;
   status: string;
@@ -38,42 +39,12 @@ export const usePastEvents = () => {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase
-        .from('bookings')
-        .select(`
-          id,
-          ticket_code,
-          status,
-          created_at,
-          event:events!inner (
-            id,
-            title,
-            description,
-            date,
-            location,
-            venue,
-            event_type,
-            image_url,
-            price
-          )
-        `)
-        .eq('user_id', user.id)
-        .lt('events.date', new Date().toISOString())
-        .order('events.date', { ascending: false });
-
-      if (error) {
-        throw error;
-      }
-
-      setPastEvents(data || []);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch past events';
+      const res = await api.get(`/bookings/user/${user._id}?past=true`);
+      setPastEvents(res.data.bookings || []);
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch past events';
       setError(errorMessage);
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -83,12 +54,7 @@ export const usePastEvents = () => {
     fetchPastEvents();
   }, [user]);
 
-  return {
-    pastEvents,
-    loading,
-    error,
-    refetch: fetchPastEvents,
-  };
+  return { pastEvents, loading, error, refetch: fetchPastEvents };
 };
 
 export default usePastEvents;

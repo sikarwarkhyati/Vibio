@@ -1,22 +1,24 @@
+// src/components/EventsMap.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
 import { MapPin, Settings } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import api from '../lib/api';
+import { useToast } from '../hooks/use-toast';
 
 interface Event {
   id: string;
+  _id: string;
   title: string;
   event_type: string;
   location: string;
   venue?: string;
   date: string;
   price?: number;
-  coordinates?: [number, number]; // [lng, lat]
+  coordinates?: [number, number];
 }
 
 interface EventsMapProps {
@@ -26,125 +28,81 @@ interface EventsMapProps {
 const EventsMap: React.FC<EventsMapProps> = ({ className }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const [mapboxToken, setMapboxToken] = useState('');
+  const [mapboxToken, setMapboxToken] = useState(import.meta.env.VITE_MAPBOX_TOKEN || '');
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  // Demo coordinates for major cities
+  // City coordinates
   const cityCoordinates: { [key: string]: [number, number] } = {
     'San Francisco': [-122.4194, 37.7749],
     'Austin': [-97.7431, 30.2672],
-    'New York': [-74.0060, 40.7128],
+    'New York': [-74.006, 40.7128],
     'Los Angeles': [-118.2437, 34.0522],
     'Boston': [-71.0589, 42.3601],
     'Napa Valley': [-122.2654, 38.2975],
-    'Mumbai': [72.8777, 19.0760],
+    'Mumbai': [72.8777, 19.076],
     'Delhi': [77.1025, 28.7041],
     'Bangalore': [77.5946, 12.9716],
     'Chennai': [80.2707, 13.0827],
-    'Hyderabad': [78.4867, 17.3850],
-    'Pune': [73.8567, 18.5204]
+    'Hyderabad': [78.4867, 17.385],
+    'Pune': [73.8567, 18.5204],
   };
 
   // Event type colors
   const eventColors: { [key: string]: string } = {
-    'tech': '#3B82F6',
-    'concerts': '#EF4444',
-    'sports': '#10B981',
-    'workshops': '#F59E0B',
-    'festivals': '#8B5CF6'
+    tech: '#3B82F6',
+    concerts: '#EF4444',
+    sports: '#10B981',
+    workshops: '#F59E0B',
+    festivals: '#8B5CF6',
   };
 
+  // Helper to estimate coordinates
+  const getCoordinatesForLocation = (location: string): [number, number] => {
+    for (const [city, coords] of Object.entries(cityCoordinates)) {
+      if (location.toLowerCase().includes(city.toLowerCase())) {
+        return coords;
+      }
+    }
+    return cityCoordinates['San Francisco'];
+  };
+
+  // Fetch nearby events from backend
   const fetchNearbyEvents = async (lat?: number, lng?: number, days: number = 7) => {
     try {
       setLoading(true);
-      
-      // Calculate date range
       const now = new Date();
-      const endDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
-      
-      const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .gte('date', now.toISOString())
-        .lte('date', endDate.toISOString())
-        .limit(50);
+      const endDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
+      const res = await api.get('/events', {
+        params: { minDate: now.toISOString(), maxDate: endDate, limit: 50 },
+      });
 
-      const eventsData = data || [];
-      
-      // If no real events, use dummy events for demo
+      const eventsData = res.data.events || res.data || [];
+
       if (eventsData.length === 0) {
         const dummyEvents: Event[] = [
-          {
-            id: 'map-event-1',
-            title: 'Tech Innovation Summit',
-            event_type: 'tech',
-            location: 'San Francisco, CA',
-            venue: 'Moscone Center',
-            date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-            price: 299,
-            coordinates: cityCoordinates['San Francisco']
-          },
-          {
-            id: 'map-event-2',
-            title: 'Music Festival',
-            event_type: 'festivals',
-            location: 'Austin, TX',
-            venue: 'Zilker Park',
-            date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-            price: 199,
-            coordinates: cityCoordinates['Austin']
-          },
-          {
-            id: 'map-event-3',
-            title: 'Digital Marketing Workshop',
-            event_type: 'workshops',
-            location: 'New York, NY',
-            venue: 'WeWork Times Square',
-            date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-            price: 149,
-            coordinates: cityCoordinates['New York']
-          },
-          {
-            id: 'map-event-4',
-            title: 'Basketball Championship',
-            event_type: 'sports',
-            location: 'Los Angeles, CA',
-            venue: 'Staples Center',
-            date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-            price: 250,
-            coordinates: cityCoordinates['Los Angeles']
-          },
-          {
-            id: 'map-event-5',
-            title: 'Classical Concert',
-            event_type: 'concerts',
-            location: 'Boston, MA',
-            venue: 'Symphony Hall',
-            date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
-            price: 89,
-            coordinates: cityCoordinates['Boston']
-          }
+          { id: 'map-event-1', title: 'Tech Innovation Summit', event_type: 'tech', location: 'San Francisco, CA', venue: 'Moscone Center', date: new Date(Date.now() + 7 * 86400000).toISOString(), price: 299, coordinates: cityCoordinates['San Francisco'], _id: 'map-event-1' },
+          { id: 'map-event-2', title: 'Music Festival', event_type: 'festivals', location: 'Austin, TX', venue: 'Zilker Park', date: new Date(Date.now() + 14 * 86400000).toISOString(), price: 199, coordinates: cityCoordinates['Austin'], _id: 'map-event-2' },
+          { id: 'map-event-3', title: 'Digital Marketing Workshop', event_type: 'workshops', location: 'New York, NY', venue: 'WeWork Times Square', date: new Date(Date.now() + 3 * 86400000).toISOString(), price: 149, coordinates: cityCoordinates['New York'], _id: 'map-event-3' },
+          { id: 'map-event-4', title: 'Basketball Championship', event_type: 'sports', location: 'Los Angeles, CA', venue: 'Staples Center', date: new Date(Date.now() + 21 * 86400000).toISOString(), price: 250, coordinates: cityCoordinates['Los Angeles'], _id: 'map-event-4' },
+          { id: 'map-event-5', title: 'Classical Concert', event_type: 'concerts', location: 'Boston, MA', venue: 'Symphony Hall', date: new Date(Date.now() + 10 * 86400000).toISOString(), price: 89, coordinates: cityCoordinates['Boston'], _id: 'map-event-5' },
         ];
         setEvents(dummyEvents);
       } else {
-        // Add coordinates to real events based on location
-        const eventsWithCoordinates = eventsData.map(event => ({
+        const eventsWithCoordinates = eventsData.map((event: any) => ({
           ...event,
-          coordinates: getCoordinatesForLocation(event.location)
-        }));
+          id: event._id || event.id,
+          coordinates: getCoordinatesForLocation(event.location),
+        })) as Event[];
         setEvents(eventsWithCoordinates);
       }
     } catch (err) {
       console.error('Error fetching events:', err);
       toast({
         title: 'Error',
-        description: 'Failed to fetch nearby events',
+        description: (err as any).response?.data?.message || 'Failed to fetch nearby events',
         variant: 'destructive',
       });
     } finally {
@@ -152,41 +110,31 @@ const EventsMap: React.FC<EventsMapProps> = ({ className }) => {
     }
   };
 
-  const getCoordinatesForLocation = (location: string): [number, number] => {
-    // Try to match city names
-    for (const [city, coords] of Object.entries(cityCoordinates)) {
-      if (location.toLowerCase().includes(city.toLowerCase())) {
-        return coords;
-      }
-    }
-    // Default to San Francisco if no match
-    return cityCoordinates['San Francisco'];
-  };
-
+  // Initialize map and add markers directly inside load event
   const initializeMap = (token: string) => {
     if (!mapContainer.current || map.current) return;
 
     mapboxgl.accessToken = token;
-    
+
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/light-v11',
-      center: [-98.5795, 39.8283], // Center of US
+      center: [-98.5795, 39.8283],
       zoom: 3.5,
-      projection: 'mercator'
+      projection: 'mercator',
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
+    // Add markers when the map is loaded
     map.current.on('load', () => {
-      addEventMarkers();
+      if (events.length > 0) addEventMarkers();
     });
   };
 
   const addEventMarkers = () => {
     if (!map.current || events.length === 0) return;
 
-    // Clear existing markers
     const existingMarkers = document.querySelectorAll('.event-marker');
     existingMarkers.forEach(marker => marker.remove());
 
@@ -209,7 +157,6 @@ const EventsMap: React.FC<EventsMapProps> = ({ className }) => {
       markerElement.addEventListener('mouseenter', () => {
         markerElement.style.transform = 'scale(1.2)';
       });
-
       markerElement.addEventListener('mouseleave', () => {
         markerElement.style.transform = 'scale(1)';
       });
@@ -233,31 +180,28 @@ const EventsMap: React.FC<EventsMapProps> = ({ className }) => {
       `);
 
       new mapboxgl.Marker(markerElement)
-        .setLngLat(event.coordinates)
+        .setLngLat(event.coordinates!)
         .setPopup(popup)
         .addTo(map.current!);
     });
   };
 
   useEffect(() => {
-    fetchNearbyEvents();
-  }, []);
-
-  useEffect(() => {
-    if (mapboxToken && mapContainer.current) {
-      initializeMap(mapboxToken);
-    }
+    if (mapboxToken) fetchNearbyEvents();
   }, [mapboxToken]);
 
   useEffect(() => {
-    if (map.current && events.length > 0) {
-      addEventMarkers();
-    }
+    if (mapboxToken && mapContainer.current) initializeMap(mapboxToken);
+  }, [mapboxToken]);
+
+  useEffect(() => {
+    if (map.current && events.length > 0) addEventMarkers();
   }, [events]);
 
   const handleTokenSubmit = () => {
     if (mapboxToken.trim()) {
       initializeMap(mapboxToken);
+      fetchNearbyEvents();
     }
   };
 
@@ -273,11 +217,10 @@ const EventsMap: React.FC<EventsMapProps> = ({ className }) => {
         {!mapboxToken ? (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Enter your Mapbox public token to view events on the map.
-              Get your token from{' '}
-              <a 
-                href="https://mapbox.com/" 
-                target="_blank" 
+              Enter your Mapbox public token to view events on the map. Get your token from{' '}
+              <a
+                href="https://mapbox.com/"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:underline"
               >
@@ -306,7 +249,7 @@ const EventsMap: React.FC<EventsMapProps> = ({ className }) => {
               <div className="flex gap-2 text-xs">
                 {Object.entries(eventColors).map(([type, color]) => (
                   <div key={type} className="flex items-center gap-1">
-                    <div 
+                    <div
                       className="w-3 h-3 rounded-full border border-white shadow-sm"
                       style={{ backgroundColor: color }}
                     />
@@ -315,13 +258,13 @@ const EventsMap: React.FC<EventsMapProps> = ({ className }) => {
                 ))}
               </div>
             </div>
-            
-            <div 
-              ref={mapContainer} 
+
+            <div
+              ref={mapContainer}
               className="w-full h-96 rounded-lg shadow-sm"
               style={{ minHeight: '400px' }}
             />
-            
+
             <div className="mt-4 text-xs text-muted-foreground">
               Click on markers to see event details. Different colors represent different event types.
             </div>
