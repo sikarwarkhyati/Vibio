@@ -1,73 +1,132 @@
-# Welcome to your Lovable project
+# 🎉 Vibio — Event Discovery & Management Platform
 
-## Project info
+Vibio is a full-stack web application built to help users **discover, organize, and manage events** — cultural, technical, and sports — all in one place.  
+It features role-based dashboards for **Users**, **Organizers**, and **Admins**, providing seamless event creation, registration, and management experiences.
 
-**URL**: https://lovable.dev/projects/55e3037b-1032-45c4-9700-2be4a4eb7cfd
+---
 
-## How can I edit this code?
+## 🚀 Tech Stack
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/55e3037b-1032-45c4-9700-2be4a4eb7cfd) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
+**Frontend**
+- React (Vite + TypeScript)
 - Tailwind CSS
+- shadcn/ui Components
+- React Router DOM
+- Context API for Auth & Global State
 
-## How can I deploy this project?
+**Backend**
+- Node.js
+- Express.js
+- MongoDB + Mongoose
+- JWT Authentication
+- Multer for file uploads
+- dotenv for environment configuration
 
-Simply open [Lovable](https://lovable.dev/projects/55e3037b-1032-45c4-9700-2be4a4eb7cfd) and click on Share -> Publish.
+---
 
-## Can I connect a custom domain to my Lovable project?
+## 🧩 Features
 
-Yes, you can!
+### 👤 User
+- Sign up & log in with secure JWT auth  
+- Browse and filter events by category or date  
+- Register for events & manage bookings  
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### 🏢 Organizer
+- Create, update, and manage hosted events  
+- Upload banners, descriptions, and categories  
+- View registered participants  
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+### 🛡️ Admin
+- Access dashboard analytics  
+- Manage users & events  
+- Approve or remove events  
+
+---
+
+## ⚙️ Setup Instructions
+
+1️⃣ Clone the Repository
+```bash
+git clone https://github.com/PoisenPrince/Vibio.git
+cd Vibio
+
+
+2️⃣ Install Dependencies
+Frontend
+cd src/frontend
+npm install
+
+Backend
+cd ../backend
+npm install
+
+3️⃣ Environment Variables
+
+Create a .env file inside /src/backend with:
+
+PORT=5000
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_secret_key
+
+4️⃣ Run the Application
+Run Backend:
+npm run dev
+
+Run Frontend (in another terminal):
+npm run dev
+
+
+Frontend runs at: http://localhost:8000
+
+Backend runs at: http://localhost:5000
+
+🧠 Folder Structure (Simplified)
+Vibio/
+│
+├── src/
+│   ├── backend/
+│   │   ├── controllers/
+│   │   ├── models/
+│   │   ├── routes/
+│   │   ├── middleware/
+│   │   ├── server.ts
+│   │   └── .env
+│   │
+│   ├── frontend/
+│   │   ├── src/
+│   │   │   ├── components/
+│   │   │   ├── context/
+│   │   │   ├── hooks/
+│   │   │   ├── pages/
+│   │   │   ├── App.tsx
+│   │   │   └── main.tsx
+│   │   └── public/
+│   │
+│   └── shared/
+│       └── types/
+│
+├── .gitignore
+└── README.md
+
+🧑‍🤝‍🧑 Contributing
+
+If you’re collaborating:
+
+Fork the repository
+
+Create a feature branch (git checkout -b feature-name)
+
+Commit changes (git commit -m "Added new feature")
+
+Push to your branch (git push origin feature-name)
+
+Open a Pull Request 🚀
+
+📜 License
+
+This project is licensed under the MIT License — free to use and modify with attribution.
+
+✨ Author
+
+Yatharth Jain (PoisenPrince)
+Khyati Sikarwar(sikarwarkhyati)
