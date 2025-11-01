@@ -5,22 +5,27 @@ import {
   updateEvent,
   deleteEvent,
   getAllEvents,
-} from "../controllers/eventController.js";
-import { authenticate } from "../middleware/authMiddleware.js"; // JWT verification
-import { authorizeRoles } from "../middleware/authMiddleware.js"; // Role-based access
+  getEventById,
+} from "../controllers/eventController";
+import { authenticate, authorizeRoles } from "../middleware/authMiddleware";
 
 const router = express.Router();
 
 // ------------------- PUBLIC -------------------
-router.get("/", getAllEvents); // Anyone can see all events
+// Anyone can see all events
+router.get("/", getAllEvents);
 
-// ------------------- AUTHENTICATED USERS -------------------
-router.use(authenticate); // All routes below require authentication
+// Single event details (public)
+router.get("/:eventId", getEventById);
 
-// Organizer routes
-router.get("/organizer", authorizeRoles("organizer"), getOrganizerEvents);
+// ------------------- AUTHENTICATED -------------------
+// Below this line, JWT required
+router.use(authenticate);
 
-// Admin routes
+// Organizer: view their own events
+router.get("/organizer", authorizeRoles("organizer", "admin"), getOrganizerEvents);
+
+// Admin-only management routes
 router.post("/", authorizeRoles("admin"), createEvent);
 router.put("/:eventId", authorizeRoles("admin"), updateEvent);
 router.delete("/:eventId", authorizeRoles("admin"), deleteEvent);

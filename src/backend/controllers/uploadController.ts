@@ -1,9 +1,9 @@
 // src/backend/controllers/uploadController.ts
 
 import { Response } from "express";
-import { AuthRequest } from "../types/indexexpress.js";
+import { AuthRequest } from "../types/indexexpress";
 import User from "../models/users.js";
-import cloudinary from "../config/cloudinary.js";
+import cloudinary from "../config/cloudinary";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 

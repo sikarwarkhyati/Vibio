@@ -1,10 +1,13 @@
+// src/backend/controllers/authController.ts
 import { Request, Response } from "express";
-import User from "../models/users.js";
+import User from "../models/users";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import mongoose from "mongoose";
-import { sendEmail } from "../utils/sendEmail.js";
+import { sendEmail } from "../utils/sendEmail";
+// add to authController.ts
+import { AuthRequest } from "../types/indexexpress";
 
 // Signup request interface
 interface SignupRequest extends Request {
@@ -135,5 +138,29 @@ export const login = async (req: Request, res: Response) => {
   } catch (err) {
     console.error("Login Error:", err);
     res.status(500).json({ message: "Internal server error" });
+  }
+};
+// ------------------- GET CURRENT USER (/api/auth/me) -------------------
+export const getMe = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    // Minimal safe shape for frontend
+    const safeUser = {
+      _id: req.user._id,
+      id: req.user._id, // convenience for frontend
+      name: req.user.name,
+      email: req.user.email,
+      role: req.user.role,
+      verified: req.user.verified,
+      organizationId: req.user.organizationId || null,
+    };
+
+    return res.status(200).json({ user: safeUser });
+  } catch (err) {
+    console.error("getMe Error:", err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };

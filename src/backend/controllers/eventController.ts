@@ -1,8 +1,8 @@
 // src/backend/controllers/eventController.ts
 import { Response } from "express";
 import mongoose from "mongoose";
-import Event, { IEvent } from "../models/event.js";
-import { AuthRequest } from "../types/indexexpress.js";
+import Event, { IEvent } from "../models/event";
+import { AuthRequest } from "../types/indexexpress";
 
 // ------------------- CREATE EVENT (Admin Only) -------------------
 export const createEvent = async (req: AuthRequest, res: Response) => {
@@ -101,10 +101,70 @@ export const deleteEvent = async (req: AuthRequest, res: Response) => {
 // ------------------- GET ALL EVENTS (Public) -------------------
 export const getAllEvents = async (_req: AuthRequest, res: Response) => {
   try {
-    const events = await Event.find().sort({ date: 1 });
-    res.status(200).json(events);
+    // Tell TS that this returns IEvent[]
+    const events: IEvent[] = await Event.find().sort({ date: 1 });
+
+    const transformed = events.map((ev: IEvent) => ({
+      _id: (ev._id as any).toString(),
+      title: ev.title,
+      description: ev.description,
+      date: ev.date,
+      location: ev.location,
+      venue: ev.location, // we don't store separate venue yet
+      event_type: "general", // placeholder category
+      price: 0, // we don't store ticket price yet
+      available_seats: ev.maxTickets, // frontend calls this available_seats
+      image_url: ev.images && ev.images.length > 0 ? ev.images[0] : undefined,
+      organizer_id: ev.organizerId ? (ev.organizerId as any).toString() : undefined,
+      created_at: ev.createdAt,
+      popularity_score: 0, // placeholder for now
+    }));
+
+    return res.status(200).json({
+      events: transformed,
+      totalEvents: transformed.length,
+    });
   } catch (err) {
     console.error("Get All Events Error:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ------------------- GET SINGLE EVENT (Public) -------------------
+export const getEventById = async (req: AuthRequest, res: Response) => {
+  try {
+    const { eventId } = req.params;
+
+    // Frontend may still pass dummy IDs like "dummy-0001", not valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    const ev: IEvent | null = await Event.findById(eventId);
+    if (!ev) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    const transformed = {
+      _id: (ev._id as any).toString(),
+      title: ev.title,
+      description: ev.description,
+      date: ev.date,
+      location: ev.location,
+      venue: ev.location,
+      event_type: "general",
+      price: 0,
+      available_seats: ev.maxTickets,
+      image_url: ev.images && ev.images.length > 0 ? ev.images[0] : undefined,
+      organizer_id: ev.organizerId ? (ev.organizerId as any).toString() : undefined,
+      created_at: ev.createdAt,
+      popularity_score: 0,
+      images: ev.images,
+    };
+
+    return res.status(200).json(transformed);
+  } catch (err) {
+    console.error("Get Event By ID Error:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 };

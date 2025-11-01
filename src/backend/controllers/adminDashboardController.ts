@@ -1,10 +1,10 @@
 // src/backend/controllers/adminDashboardController.ts
 
 import { Response } from "express";
-import Event from "../models/event.js";
-import Ticket from "../models/ticket.js";
-import User from "../models/users.js";
-import { AuthRequest } from "../types/indexexpress.js";
+import Event from "../models/event";
+import Ticket from "../models/ticket";
+import User from "../models/users";
+import { AuthRequest } from "../types/indexexpress";
 import mongoose from "mongoose";
 
 /**

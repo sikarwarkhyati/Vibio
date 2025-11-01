@@ -1,7 +1,8 @@
+// src/backend/controllers/organiserDashboardController.ts
 import { Response } from "express";
-import Event from "../models/event.js";
-import Ticket from "../models/ticket.js";
-import { AuthRequest } from "../types/indexexpress.js";
+import Event from "../models/event";
+import Ticket from "../models/ticket";
+import { AuthRequest } from "../types/indexexpress";
 import { Types } from "mongoose";
 
 export const getOrganizerEvents = async (req: AuthRequest, res: Response) => {
@@ -10,7 +11,7 @@ export const getOrganizerEvents = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: "Access denied: Organizer only" });
     }
 
-    const organizerId = req.user._id as string; // Safe cast
+    const organizerId = req.user.id;
     const events = await Event.find({ organizerId: organizerId })
       .sort({ date: 1 })
       .lean();
@@ -29,7 +30,7 @@ export const getEventStats = async (req: AuthRequest, res: Response) => {
     }
 
     const { eventId } = req.params;
-    const organizerId = req.user._id as string;
+    const organizerId = req.user._id;
 
     const event = await Event.findOne({ _id: eventId, organizerId }).lean();
     if (!event) return res.status(404).json({ message: "Event not found or unauthorized" });
@@ -66,7 +67,7 @@ export const verifyTicket = async (req: AuthRequest, res: Response) => {
     if (!ticket || !ticket.eventId) return res.status(404).json({ message: "Invalid ticket token" });
 
     const eventOwnerId = (ticket.eventId as any).organizerId?.toString();
-    if (!eventOwnerId || eventOwnerId !== (req.user._id as string)) {
+    if (!eventOwnerId || eventOwnerId !== (req.user._id)) {
       return res.status(403).json({ message: "Not authorized to verify this ticket" });
     }
 
@@ -88,7 +89,7 @@ export const getOrganizerDashboard = async (req: AuthRequest, res: Response) => 
       return res.status(403).json({ message: "Access denied: Organizer only" });
     }
 
-    const organizerId = req.user._id as string;
+    const organizerId = req.user._id ;
     const events = await Event.find({ organizerId }).sort({ date: 1 }).lean();
 
     const eventsWithStats = await Promise.all(

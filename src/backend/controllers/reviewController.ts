@@ -1,9 +1,9 @@
 // src/backend/controllers/reviewController.ts
 import { Response } from "express";
-import Review, { IReview } from "../models/review.js";
-import Event from "../models/event.js";
+import Review, { IReview } from "../models/review";
+import Event from "../models/event";
 import mongoose, { Types } from "mongoose";
-import { AuthRequest } from "../types/indexexpress.js";
+import { AuthRequest } from "../types/indexexpress";
 
 // ------------------- CREATE REVIEW -------------------
 export const createReview = async (req: AuthRequest, res: Response) => {

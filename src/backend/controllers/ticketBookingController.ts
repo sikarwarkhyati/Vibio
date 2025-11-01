@@ -1,9 +1,10 @@
+// src/backend/controllers/ticketBookingController.ts
 import { Response } from "express";
 import crypto from "crypto";
-import Ticket from "../models/ticket.js";
-import Event, { IEvent } from "../models/event.js";
-import Booking from "../models/bookings.js";
-import { AuthRequest } from "../types/indexexpress.js";
+import Ticket from "../models/ticket";
+import Event, { IEvent } from "../models/event";
+import Booking from "../models/bookings";
+import { AuthRequest } from "../types/indexexpress";
 
 export const bookTickets = async (req: AuthRequest, res: Response) => {
   try {

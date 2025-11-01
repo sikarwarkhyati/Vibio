@@ -1,18 +1,18 @@
 // src/backend/routes/adminRoutes.ts
 
 import { Router } from "express";
-import { authenticate, authorizeRoles } from "../middleware/authMiddleware.js";
+import { authenticate, authorizeRoles } from "../middleware/authMiddleware";
 import {
     getAdminDashboard,
     getAllEventsAdmin,
     getAllUsersAdmin,
-} from "../controllers/adminDashboardController.js";
+} from "../controllers/adminDashboardController";
 
 // Import the existing event CRUD functions, which also contain admin role checks internally.
 import {
     updateEvent,
     deleteEvent,
-} from "../controllers/eventController.js";
+} from "../controllers/eventController";
 
 const router = Router();
 

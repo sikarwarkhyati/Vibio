@@ -1,7 +1,9 @@
+// src/backend/models/users.ts
 import mongoose, { Schema, Document, Types } from "mongoose";
 
 // User interface
 export interface IUser extends Document {
+  _id: Types.ObjectId;
   name: string;
   email: string;
   password: string;

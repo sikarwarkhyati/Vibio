@@ -1,41 +1,57 @@
 // src/lib/api.ts
-import axios from 'axios';
+import axios, { AxiosInstance } from "axios";
 
-// Base URL for your backend
-const BASE_URL = 'http://localhost:5000/api';
+const BASE_URL =
+  (import.meta as any).env?.VITE_API_BASE_URL ||
+  // fallback for local dev:
+  "http://localhost:5000/api";
 
-// Create a default axios instance
-export const api = axios.create({
+const api: AxiosInstance = axios.create({
   baseURL: BASE_URL,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
-// Add a request interceptor to include JWT token automatically
+// Attach JWT token from localStorage (key: "token") to every request
 api.interceptors.request.use(
   (config) => {
-    // Get token from localStorage (or wherever you store it)
-    const token = localStorage.getItem('token');
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    try {
+      if (typeof window !== "undefined") {
+        const token = localStorage.getItem("token");
+        if (token && config.headers) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      }
+    } catch (e) {
+      // ignore read errors
+      console.warn("Could not read auth token from localStorage", e);
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Optional: response interceptor for global error handling
+// Global response handler (optional central place for common errors)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // You can handle common errors here, e.g., 401 unauthorized
-    if (error.response && error.response.status === 401) {
-      console.warn('Unauthorized! Redirect to login.');
-      // Optionally: redirect to login page
+    const status = error?.response?.status;
+    if (status === 401) {
+      // Token expired / invalid — clear and redirect to auth
+      try {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("token");
+          // you may want to show a toast here, or dispatch a global logout event
+          window.location.href = "/auth";
+        }
+      } catch (e) {
+        // ignore
+      }
     }
     return Promise.reject(error);
   }
 );
 
 export default api;
+export { api };

@@ -1,12 +1,12 @@
 // src/backend/routes/userRoutes.ts
 
 import { Router } from "express";
-import { authenticate, authorizeRoles } from "../middleware/authMiddleware.js";
+import { authenticate, authorizeRoles } from "../middleware/authMiddleware";
 import {
     getUserDashboard,
     getAvailableEvents,
-} from "../controllers/userDashboardController.js";
-import { bookTickets } from "../controllers/ticketBookingController.js"; // Import the booking controller
+} from "../controllers/userDashboardController";
+import { bookTickets } from "../controllers/ticketBookingController"; // Import the booking controller
 
 const router = Router();
 

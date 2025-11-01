@@ -1,3 +1,4 @@
+// src/backend/models/ticket.ts
 import mongoose, { Document, Schema } from "mongoose";
 
 export interface ITicket extends Document {

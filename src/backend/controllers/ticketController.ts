@@ -1,13 +1,14 @@
+// src/backend/controllers/ticketController.ts
 import { Response } from "express";
-import Ticket from "../models/ticket.js";
-import Event from "../models/event.js";
-import { AuthRequest } from "../types/indexexpress.js";
+import Ticket from "../models/ticket";
+import Event from "../models/event";
+import { AuthRequest } from "../types/indexexpress";
 
 export const validateTicket = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) return res.status(401).json({ message: "Not authenticated" });
 
-    const userId = req.user._id as string; // Safe cast
+    const userId = req.user.id;
     const { token } = req.body;
     if (!token) return res.status(400).json({ message: "Ticket token required" });
 

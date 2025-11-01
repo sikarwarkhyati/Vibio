@@ -1,12 +1,12 @@
 // src/backend/routes/uploadRoutes.ts
 
 import { Router } from "express";
-import { authenticate } from "../middleware/authMiddleware.js";
+import { authenticate } from "../middleware/authMiddleware";
 import {
   uploadFile,
   updateProfilePicture,
   multerMiddleware,
-} from "../controllers/uploadController.js";
+} from "../controllers/uploadController";
 
 const router = Router();
 

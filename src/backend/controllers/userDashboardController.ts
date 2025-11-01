@@ -1,9 +1,9 @@
 // src/backend/controllers/userDashboardController.ts
 
 import { Response } from "express";
-import Event from "../models/event.js";
-import Ticket from "../models/ticket.js";
-import { AuthRequest } from "../types/indexexpress.js";
+import Event from "../models/event";
+import Ticket from "../models/ticket";
+import { AuthRequest } from "../types/indexexpress";
 // Define Max Tickets Per User (consistent with booking logic)
 const MAX_TICKETS_PER_USER = 5; // Should ideally be moved to .env or config
 

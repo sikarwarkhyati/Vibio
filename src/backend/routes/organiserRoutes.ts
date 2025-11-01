@@ -1,12 +1,12 @@
 // src/backend/routes/organiserRoutes.ts
 import { Router } from "express";
-import { authenticate, authorizeRoles } from "../middleware/authMiddleware.js";
+import { authenticate, authorizeRoles } from "../middleware/authMiddleware";
 import {
   getOrganizerEvents,
   getEventStats,
   getOrganizerDashboard,
   verifyTicket,
-} from "../controllers/organiserDashboardController.js";
+} from "../controllers/organiserDashboardController";
 
 const router = Router();
 

@@ -1,15 +1,22 @@
-// src/contexts/AuthContext.tsx
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../lib/api";
+
+type Role = "user" | "organizer" | "admin";
 
 interface UserType {
-  _id: string;
+  id?: string;
+  _id?: string;
+  name?: string;
   email: string;
-  fullName?: string;
-  role?: string;
-  orgName?: string;
-  businessName?: string;
+  role?: Role;
+  verified?: boolean;
 }
 
 interface AuthContextType {
@@ -19,20 +26,24 @@ interface AuthContextType {
     email: string,
     password: string,
     fullName?: string,
-    role?: string,
-    orgName?: string,
-    businessName?: string
-  ) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+    role?: Role,
+    organizationId?: string // we’ll treat orgName in the UI and pass it as orgId later if needed
+  ) => Promise<{ error: string | null }>;
+  signIn: (
+    email: string,
+    password: string
+  ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+  return ctx;
 };
 
 interface AuthProviderProps {
@@ -44,17 +55,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Load user from backend if token exists
+  // helper to normalize backend error into string
+  function extractErrorMessage(err: any): string {
+    if (!err) return "Unknown error";
+
+    // axios error?
+    if (err.response && err.response.data) {
+      const data = err.response.data;
+      if (typeof data === "string") return data;
+      if (data.message) return data.message;
+    }
+
+    if (typeof err.message === "string") return err.message;
+    if (typeof err === "string") return err;
+    return "Request failed";
+  }
+
+  // Load user (if token exists)
   useEffect(() => {
     const loadUser = async () => {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       if (token) {
         try {
-          const res = await api.get('/auth/me');
-          setUser(res.data.user);
+          const res = await api.get("/auth/me"); // GET /api/auth/me
+          setUser(res.data.user || null);
         } catch (err) {
-          console.error('Failed to fetch user:', err);
-          localStorage.removeItem('token');
+          console.error("Failed to fetch /auth/me:", err);
+          localStorage.removeItem("token");
           setUser(null);
         }
       }
@@ -63,63 +90,77 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loadUser();
   }, []);
 
-  // Sign Up
+  // SIGN UP
+  // backend expects: { name, email, password, role, organizationId? }
   const signUp = async (
     email: string,
     password: string,
     fullName?: string,
-    role?: string,
-    orgName?: string,
-    businessName?: string
+    role: Role = "user",
+    organizationId?: string
   ) => {
     try {
-      const res = await api.post('/auth/signup', {
+      const payload: Record<string, any> = {
+        name: fullName ?? "", // backend calls this "name"
         email,
         password,
-        fullName,
         role,
-        orgName,
-        businessName,
-      });
+      };
+
+      // only send organizationId if we actually have something that looks like an ID
+      if (role === "organizer" && organizationId) {
+        payload.organizationId = organizationId;
+      }
+
+      await api.post("/auth/signup", payload);
+
+      // we do NOT log them in yet. They must verify email, then login manually.
       return { error: null };
     } catch (err: any) {
-      console.error('Signup error:', err.response?.data || err.message);
-      return { error: err.response?.data || err.message };
+      console.error("Signup error:", err);
+      return { error: extractErrorMessage(err) };
     }
   };
 
-  // Sign In
+  // SIGN IN
+  // backend expects: { email, password }
+  // backend returns: { token, user: { id, name, email, role } }
   const signIn = async (email: string, password: string) => {
     try {
-      const res = await api.post('/auth/login', { email, password });
-      const { token, user } = res.data;
+      const res = await api.post("/auth/login", { email, password });
 
-      // Store token and update state
-      localStorage.setItem('token', token);
-      setUser(user);
+      const { token, user: loggedInUser } = res.data || {};
 
-      // Navigate based on role
-      const role = user.role || 'user';
-      const redirectPath =
-        role === 'organizer'
-          ? '/dashboard'
-          : role === 'user'
-          ? '/user-dashboard'
-          : '/';
+      if (token) {
+        localStorage.setItem("token", token);
+      } else {
+        console.warn("No token received from /auth/login");
+      }
+
+      setUser(loggedInUser || null);
+
+      // figure out where to send them
+      const role = (loggedInUser?.role || "user") as Role;
+
+      let redirectPath = "/";
+      if (role === "organizer") redirectPath = "/dashboard";
+      else if (role === "user") redirectPath = "/user-dashboard";
+      else if (role === "admin") redirectPath = "/admin-dashboard";
+
       navigate(redirectPath, { replace: true });
 
       return { error: null };
     } catch (err: any) {
-      console.error('Login error:', err.response?.data || err.message);
-      return { error: err.response?.data || err.message };
+      console.error("Login error:", err);
+      return { error: extractErrorMessage(err) };
     }
   };
 
-  // Sign Out
+  // SIGN OUT
   const signOut = async () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem("token");
     setUser(null);
-    navigate('/role-auth', { replace: true });
+    navigate("/role-auth", { replace: true });
   };
 
   const value: AuthContextType = {
@@ -132,3 +173,5 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+export default AuthContext;
