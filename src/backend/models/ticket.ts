@@ -6,6 +6,7 @@ export interface ITicket extends Document {
   userId: mongoose.Types.ObjectId;
   validated: boolean;
   ticketToken: string; // ✅ unique token for verification
+  price?: number; // ✅ add this (optional but important for analytics)
   createdAt?: Date;
   updatedAt?: Date;
 }

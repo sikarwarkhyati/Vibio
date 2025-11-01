@@ -1,22 +1,17 @@
 // src/backend/app.ts
 
 import express from "express";
-
 import cors from "cors";
-
 import authRoutes from "./routes/authRoutes";
-
 import eventRoutes from "./routes/eventRoutes";
-
 import ticketRoutes from "./routes/ticketRoutes";
-
 import organizerRoutes from "./routes/organiserRoutes";
-
 import userRoutes from "./routes/userRoutes";
-
 import adminRoutes from "./routes/adminRoutes";
-
 import uploadRoutes from "./routes/uploadRoutes";
+import bookingRoutes from "./routes/bookingRoutes";
+import organizerPublicRoutes from "./routes/organizerPublicRoutes";
+
 
 const app = express();
 
@@ -31,6 +26,8 @@ app.use("/api/tickets", ticketRoutes);
 app.use("/api/organizer", organizerRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use("/api/organizers", organizerPublicRoutes);
 
 // IMPORTANT: align with frontend expectations
 // frontend is calling /api/users/... (plural), so we mount it that way

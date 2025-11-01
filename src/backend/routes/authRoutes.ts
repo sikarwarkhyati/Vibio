@@ -9,6 +9,7 @@ router.post("/signup", signup);
 router.post("/login", login);
 router.get("/verify-email", verifyEmail);
 // new:
+// @ts-ignore
 router.get("/me", authenticate, getMe);
 
 export default router;

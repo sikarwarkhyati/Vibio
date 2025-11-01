@@ -3,31 +3,35 @@
 import { Router } from "express";
 import { authenticate, authorizeRoles } from "../middleware/authMiddleware";
 import {
-    getAdminDashboard,
-    getAllEventsAdmin,
-    getAllUsersAdmin,
+  getAdminDashboard,
+  getAllEventsAdmin,
+  getAllUsersAdmin,
 } from "../controllers/adminDashboardController";
-
-// Import the existing event CRUD functions, which also contain admin role checks internally.
-import {
-    updateEvent,
-    deleteEvent,
-} from "../controllers/eventController";
+import { updateEvent, deleteEvent } from "../controllers/eventController";
 
 const router = Router();
 
-// Apply authentication middleware to all routes in this router
-router.use(authenticate, authorizeRoles("admin")); 
+// 1️⃣ Restrict all routes to authenticated admins
+router.use(authenticate);
+// @ts-ignore - same mismatch between AuthRequest and Express.Request
+router.use(authorizeRoles("admin"));
 
-// Core Dashboard & Stats
+// 2️⃣ Admin dashboard (global stats)
+// @ts-ignore - AuthRequest typing mismatch
 router.get("/dashboard", getAdminDashboard);
 
-// User Management (Admin Oversight)
+// 3️⃣ Admin: view all users
+// @ts-ignore - AuthRequest typing mismatch
 router.get("/users", getAllUsersAdmin);
 
-// Event Management (Admin Oversight)
+// 4️⃣ Admin: event management
+// @ts-ignore - AuthRequest typing mismatch
 router.get("/events", getAllEventsAdmin);
-router.put("/events/:eventId", updateEvent); // Uses updateEvent from eventController
-router.delete("/events/:eventId", deleteEvent); // Uses deleteEvent from eventController
+
+// @ts-ignore - AuthRequest typing mismatch
+router.put("/events/:eventId", updateEvent);
+
+// @ts-ignore - AuthRequest typing mismatch
+router.delete("/events/:eventId", deleteEvent);
 
 export default router;

@@ -1,15 +1,101 @@
+// src/backend/controllers/bookingController.ts
 import { Response } from "express";
 import mongoose from "mongoose";
 import Booking from "../models/bookings";
 import Event from "../models/event";
+import Ticket from "../models/ticket";
+import crypto from "crypto";
 import { AuthRequest } from "../types/indexexpress";
 
+//
+// POST /api/bookings
+// Body: { eventId: string, quantity?: number }
+// Creates a booking for the logged-in user + generates tickets
+//
+export const bookEvent = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    const { eventId, quantity } = req.body;
+    const qty = Number(quantity) > 0 ? Number(quantity) : 1;
+
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({ message: "Invalid event ID" });
+    }
+
+    // 1. Load the event
+    const ev = await Event.findById(eventId);
+    if (!ev) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    // 2. Check capacity
+    const bookedCount = await Ticket.countDocuments({ eventId });
+    const remaining = (ev.maxTickets ?? 0) - bookedCount;
+    if (remaining <= 0) {
+      return res.status(400).json({ message: "Event is fully booked" });
+    }
+    if (qty > remaining) {
+      return res.status(400).json({
+        message: `Only ${remaining} tickets left`,
+      });
+    }
+
+    // 3. Create a Booking doc
+    const newBooking = await Booking.create({
+      userId: req.user._id,
+      eventId: ev._id,
+      totalTickets: qty,
+      status: "active",
+      bookedAt: new Date(),
+    });
+
+    // 4. Generate tickets for this booking
+    // We don't have price in Event yet, so default 0
+    const ticketsToInsert = Array.from({ length: qty }).map(() => ({
+      eventId: ev._id,
+      userId: req.user!._id,
+      validated: false,
+      price: 0,
+      ticketToken: crypto.randomBytes(16).toString("hex"), // unique code
+    }));
+
+
+    // Cast so TS stops whining
+    const createdTickets = (await Ticket.insertMany(ticketsToInsert)) as any[];
+    // 5. Respond
+    return res.status(201).json({
+      message: "Booking successful",
+      booking: {
+        _id: newBooking._id.toString(),
+        status: newBooking.status,
+        totalTickets: newBooking.totalTickets,
+        created_at: newBooking.bookedAt,
+      },
+      tickets: createdTickets.map((t) => ({
+        _id: t._id.toString(),
+        token: t.ticketToken,
+        validated: t.validated,
+        price: t.price,
+      })),
+    });
+  } catch (err) {
+    console.error("bookEvent Error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+//
 // GET /api/bookings/user/:userId
+//
 export const getUserBookings = async (req: AuthRequest, res: Response) => {
   try {
     const { userId } = req.params;
 
-    // auth check: you can only view your own bookings unless you're admin
+    // auth check
     if (!req.user) {
       return res.status(401).json({ message: "Not authenticated" });
     }
@@ -24,12 +110,12 @@ export const getUserBookings = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: "Invalid user ID" });
     }
 
-    // pull bookings by that user
+    // 1. All bookings by this user
     const bookings = await Booking.find({ userId })
       .sort({ bookedAt: -1 })
       .lean();
 
-    // fetch the events for each booking
+    // 2. Events referenced by those bookings
     const eventIds = bookings.map((b) => b.eventId);
     const eventsById = await Event.find({ _id: { $in: eventIds } })
       .lean()
@@ -41,12 +127,33 @@ export const getUserBookings = async (req: AuthRequest, res: Response) => {
         return map;
       });
 
-    // transform into frontend shape
+    // 3. Tickets for those bookings (by user+event)
+    const tickets = await Ticket.find({
+      userId: userId,
+      eventId: { $in: eventIds },
+    })
+      .lean()
+      .exec();
+
+    // group tickets by eventId so we can attach a "ticket_code"
+    const ticketsByEvent: Record<string, any[]> = {};
+    tickets.forEach((t) => {
+      const key = t.eventId.toString();
+      if (!ticketsByEvent[key]) ticketsByEvent[key] = [];
+      ticketsByEvent[key].push(t);
+    });
+
+    // 4. Final transform for frontend
     const responseBookings = bookings.map((b) => {
       const ev = eventsById[b.eventId.toString()];
+
+      // pick first ticket's token as "ticket_code"
+      const firstTicket = (ticketsByEvent[b.eventId.toString()] || [])[0];
+      const ticketCode = firstTicket ? firstTicket.ticketToken : "N/A";
+
       return {
         _id: b._id.toString(),
-        ticket_code: "N/A", // we don't yet store one code per booking, only per ticket
+        ticket_code: ticketCode,
         status: b.status || "active",
         created_at: b.bookedAt,
         user_id: b.userId.toString(),
@@ -61,7 +168,7 @@ export const getUserBookings = async (req: AuthRequest, res: Response) => {
               event_type: "general",
               image_url:
                 ev.images && ev.images.length > 0 ? ev.images[0] : undefined,
-              price: 0, // we don't track price yet
+              price: 0, // no pricing yet
             }
           : null,
       };
@@ -76,7 +183,10 @@ export const getUserBookings = async (req: AuthRequest, res: Response) => {
   }
 };
 
+
+//
 // PATCH /api/bookings/:bookingId/cancel
+//
 export const cancelBooking = async (req: AuthRequest, res: Response) => {
   try {
     const { bookingId } = req.params;
