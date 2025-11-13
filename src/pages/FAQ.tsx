@@ -9,7 +9,7 @@ const FAQ = () => {
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-4xl font-bold text-foreground mb-6">Frequently Asked Questions</h1>
           <p className="text-lg text-muted-foreground">
-            Quick answers to the most common questions about booking events and using Zevo.
+            Quick answers to the most common questions about booking events and using Vibio.
           </p>
         </div>
       </main>

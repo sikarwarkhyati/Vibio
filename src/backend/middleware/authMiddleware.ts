@@ -1,18 +1,11 @@
 // src/backend/middleware/authMiddleware.ts
-import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction, RequestHandler } from "express";
 import jwt from "jsonwebtoken";
 import User from "../models/users.js";
 import { AuthRequest, AuthUser } from "../types/indexexpress.js";
 
-
-// NOTE: we will assert req as AuthRequest after we build req.user.
-// This avoids fighting with Express' base Request typing.
-
-export const authenticate = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+// Authenticate: ensure token is valid and attach typed user to req
+export const authenticate: RequestHandler = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -36,9 +29,12 @@ export const authenticate = async (
       role: userDoc.role,
       organizationId: userDoc.organizationId,
       verified: userDoc.verified,
+      approvalStatus: userDoc.approvalStatus,
+      approved: userDoc.approved,
     };
 
-    // @ts-expect-error: we're augmenting req at runtime for downstream handlers
+    // assign to req.user for downstream handlers (AuthRequest)
+    // @ts-expect-error runtime augmentation
     req.user = safeUser;
 
     next();
@@ -48,17 +44,20 @@ export const authenticate = async (
   }
 };
 
-// Authorize based on roles
-export const authorizeRoles = (...roles: string[]) => {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
-    if (!req.user) {
+// Authorize based on roles: returns an Express RequestHandler (compatible with router)
+export const authorizeRoles =
+  (...roles: string[]): RequestHandler =>
+  (req: Request, res: Response, next: NextFunction) => {
+    // Cast to AuthRequest to read user safely
+    const authReq = req as AuthRequest;
+
+    if (!authReq.user) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    if (!roles.includes(req.user.role)) {
+    if (!roles.includes(authReq.user.role)) {
       return res.status(403).json({ message: "Forbidden: Insufficient role" });
     }
 
     next();
   };
-};

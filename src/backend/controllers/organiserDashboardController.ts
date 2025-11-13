@@ -3,7 +3,6 @@ import { Response } from "express";
 import Event from "../models/event";
 import Ticket from "../models/ticket";
 import { AuthRequest } from "../types/indexexpress";
-import { Types } from "mongoose";
 
 export const getOrganizerEvents = async (req: AuthRequest, res: Response) => {
   try {
@@ -11,8 +10,15 @@ export const getOrganizerEvents = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: "Access denied: Organizer only" });
     }
 
-    const organizerId = req.user.id;
-    const events = await Event.find({ organizerId: organizerId })
+    if (!req.user.organizationId) {
+      return res.status(403).json({ message: "Organizer not assigned to organization" });
+    }
+
+    const organizerId = req.user._id;
+    const events = await Event.find({
+      organizerId,
+      organizationId: req.user.organizationId,
+    })
       .sort({ date: 1 })
       .lean();
 
@@ -32,7 +38,15 @@ export const getEventStats = async (req: AuthRequest, res: Response) => {
     const { eventId } = req.params;
     const organizerId = req.user._id;
 
-    const event = await Event.findOne({ _id: eventId, organizerId }).lean();
+    if (!req.user.organizationId) {
+      return res.status(403).json({ message: "Organizer not assigned to organization" });
+    }
+
+    const event = await Event.findOne({
+      _id: eventId,
+      organizerId,
+      organizationId: req.user.organizationId,
+    }).lean();
     if (!event) return res.status(404).json({ message: "Event not found or unauthorized" });
 
     const totalTickets = event.maxTickets ?? 0;
@@ -66,9 +80,20 @@ export const verifyTicket = async (req: AuthRequest, res: Response) => {
     const ticket = await Ticket.findOne({ ticketToken: token }).populate("eventId").exec();
     if (!ticket || !ticket.eventId) return res.status(404).json({ message: "Invalid ticket token" });
 
-    const eventOwnerId = (ticket.eventId as any).organizerId?.toString();
-    if (!eventOwnerId || eventOwnerId !== (req.user._id)) {
+    const eventDoc = ticket.eventId as any;
+    const eventOwnerId = eventDoc?.organizerId?.toString();
+    const eventOrgId = eventDoc?.organizationId ? eventDoc.organizationId.toString() : null;
+
+    if (!req.user.organizationId) {
+      return res.status(403).json({ message: "Organizer not assigned to organization" });
+    }
+
+    if (!eventOwnerId || eventOwnerId !== req.user._id.toString()) {
       return res.status(403).json({ message: "Not authorized to verify this ticket" });
+    }
+
+    if (eventOrgId && eventOrgId !== req.user.organizationId.toString()) {
+      return res.status(403).json({ message: "Ticket does not belong to your organization" });
     }
 
     if (ticket.validated) return res.status(200).json({ message: "Ticket already validated", ticket });
@@ -89,8 +114,15 @@ export const getOrganizerDashboard = async (req: AuthRequest, res: Response) => 
       return res.status(403).json({ message: "Access denied: Organizer only" });
     }
 
+    if (!req.user.organizationId) {
+      return res.status(403).json({ message: "Organizer not assigned to organization" });
+    }
+
     const organizerId = req.user._id ;
-    const events = await Event.find({ organizerId }).sort({ date: 1 }).lean();
+    const events = await Event.find({
+      organizerId,
+      organizationId: req.user.organizationId,
+    }).sort({ date: 1 }).lean();
 
     const eventsWithStats = await Promise.all(
       events.map(async (event: any) => {

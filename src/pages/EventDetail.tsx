@@ -30,8 +30,10 @@ interface Event {
 
 interface Organizer {
   id: string;
-  org_name: string;
+  name?: string;
+  org_name?: string | null;
   contact_email?: string;
+  email?: string;
   contact_phone?: string;
   description?: string;
 }
@@ -62,9 +64,14 @@ const EventDetail: React.FC = () => {
       const { data: eventData } = await api.get<Event>(`/events/${id}`);
       setEvent(eventData);
 
-      // Fetch organizer from backend
-      const { data: organizerData } = await api.get<Organizer>(`/organizers/${eventData.organizer_id}`);
-      setOrganizer(organizerData);
+      if (eventData.organizer_id && /^[0-9a-fA-F]{24}$/.test(eventData.organizer_id)) {
+        const { data: organizerData } = await api.get<Organizer>(
+          `/organizers/${eventData.organizer_id}/contact-info`
+        );
+        setOrganizer(organizerData);
+      } else {
+        setOrganizer(null);
+      }
       
     } catch (err: any) {
       console.error('Error fetching event details:', err);
@@ -86,7 +93,7 @@ const EventDetail: React.FC = () => {
       setIsBooking(true);
 
       // Call backend booking endpoint
-      await api.post(`/events/${id}/book`);
+      await api.post(`/bookings`, { eventId: id });
 
       // Track booking attempt
       trackEventBooking(id, {
@@ -147,6 +154,7 @@ const EventDetail: React.FC = () => {
   );
 
   const formattedDate = formatDate(event.date);
+  const organizerDisplayName = organizer?.org_name || organizer?.name || 'Event Organizer';
 
   return (
     <div className="min-h-screen bg-background">
@@ -236,12 +244,14 @@ const EventDetail: React.FC = () => {
                   <h2 className="text-xl font-semibold mb-4">Event Organizer</h2>
                   <div className="space-y-4">
                     <div>
-                      <h3 className="font-medium text-lg">{organizer.org_name}</h3>
+                      <h3 className="font-medium text-lg">{organizerDisplayName}</h3>
                       {organizer.description && <p className="text-muted-foreground mt-2">{organizer.description}</p>}
                     </div>
-                    <ContactOrganizerForm organizerId={event.organizer_id} organizerName={organizer.org_name} eventTitle={event.title}>
-                      <Button variant="outline" className="w-full">Contact Organizer</Button>
-                    </ContactOrganizerForm>
+                    <ContactOrganizerForm
+                      organizerId={event.organizer_id}
+                      organizerName={organizerDisplayName}
+                      eventTitle={event.title}
+                    />
                   </div>
                 </CardContent>
               </Card>

@@ -127,12 +127,13 @@ const Auth: React.FC = () => {
 
     try {
       // call signUp with the correct positional params
-      const { error } = await signUp(
+      const { error, approvalPending, message } = await signUp(
         signUpData.email,
         signUpData.password,
         signUpData.fullName,
         "user", // default role here in simple Auth screen
-        undefined // no orgId in this basic screen
+        undefined, // no orgId in this basic screen
+        undefined
       );
 
       if (error) {
@@ -154,8 +155,14 @@ const Auth: React.FC = () => {
       }
 
       toast({
-        title: "Account created!",
-        description: "Please verify your email before signing in.",
+        title: approvalPending
+          ? "Account created — pending approval by superadmin."
+          : "Account created!",
+        description:
+          message ||
+          (approvalPending
+            ? "Please verify your email. You will be notified once approved."
+            : "Please verify your email before signing in."),
       });
 
       // Optionally clear form
@@ -206,7 +213,7 @@ const Auth: React.FC = () => {
       >
         <CardHeader className="text-center space-y-2">
           <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-            Welcome to Zevo
+            Welcome to Vibio
           </CardTitle>
           <CardDescription>
             Join the ultimate event management platform

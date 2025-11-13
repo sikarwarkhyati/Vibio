@@ -9,13 +9,25 @@ export interface AuthUser {
   id: string;                  // string version for convenience
   name: string;
   email: string;
-  role: "user" | "organizer" | "admin";
+  role: "user" | "organizer" | "admin" | "superadmin";
   organizationId?: Types.ObjectId;
   verified: boolean;
+  approvalStatus?: "pending" | "approved" | "rejected";
+  approved?: boolean;
 }
 
-// Extend Express' Request so that downstream controllers
-// can safely assume req.user exists and is of type AuthUser.
+// Augment Express' Request type so downstream code that expects req.user
+// doesn't conflict with Express' built-in Request type in route signatures.
+declare global {
+  namespace Express {
+    interface Request {
+      // optional here keeps it compatible with vanilla RequestHandler types
+      user?: AuthUser;
+    }
+  }
+}
+
+// Export a convenience AuthRequest type for handlers that want the stronger type
 export interface AuthRequest extends Request {
-  user: AuthUser;
+  user?: AuthUser;
 }

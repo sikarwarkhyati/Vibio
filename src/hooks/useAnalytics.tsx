@@ -19,9 +19,10 @@ export const useAnalytics = () => {
     try {
       if (eventId.startsWith('dummy-') || eventId === 'search') return;
 
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(eventId)) {
-        console.warn('Invalid UUID format for analytics tracking:', eventId);
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const mongoIdRegex = /^[0-9a-fA-F]{24}$/;
+      if (!uuidRegex.test(eventId) && !mongoIdRegex.test(eventId)) {
+        console.warn('Skipping analytics event with unsupported identifier format:', eventId);
         return;
       }
 
@@ -47,8 +48,15 @@ export const useAnalytics = () => {
       };
 
       await api.post('/analytics', analyticsPayload);
-    } catch (error) {
-      console.error('Analytics tracking failed:', error);
+    } catch (error: any) {
+      const status = error?.response?.status;
+      if (status === 404) {
+        console.debug('Analytics endpoint not found (404) — skipping analytics.');
+        return;
+      }
+
+      const message = error?.message ?? error;
+      console.warn('Analytics tracking failed:', message);
     }
   }, [user]);
 

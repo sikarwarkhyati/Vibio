@@ -1,6 +1,6 @@
 // src/backend/controllers/authController.ts
 import { Request, Response } from "express";
-import User from "../models/users";
+import User, { RoleType, IUser } from "../models/users";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -8,6 +8,8 @@ import mongoose from "mongoose";
 import { sendEmail } from "../utils/sendEmail";
 // add to authController.ts
 import { AuthRequest } from "../types/indexexpress";
+import ApprovalRequest from "../models/approvalRequest";
+import Organization, { IOrganization } from "../models/organization";
 
 // Signup request interface
 interface SignupRequest extends Request {
@@ -15,15 +17,24 @@ interface SignupRequest extends Request {
     name: string;
     email: string;
     password: string;
-    role?: "user" | "organizer" | "admin";
+    role?: RoleType;
     organizationId?: string;
+    orgName?: string;
+    organizationName?: string;
+    payload?: { organizationName?: string };
   };
 }
 
 // ------------------- SIGNUP -------------------
 export const signup = async (req: SignupRequest, res: Response) => {
   try {
-    const { name, email, password, role, organizationId } = req.body;
+    const { name, email, password, role, organizationId, orgName, organizationName, payload } =
+      req.body;
+
+    const normalizedRole: RoleType =
+      role && ["user", "organizer", "admin", "superadmin"].includes(role)
+        ? role
+        : "user";
 
     // 1️⃣ Check if user exists
     const existingUser = await User.findOne({ email });
@@ -38,24 +49,119 @@ export const signup = async (req: SignupRequest, res: Response) => {
     const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
     // 4️⃣ Create user in DB
-    const newUser = new User({
+    // Note: We use Partial<IUser> here and will safely cast ObjectId values where TS complains.
+    const userPayload: Partial<IUser> & {
+      name: string;
+      email: string;
+      password: string;
+      role: RoleType;
+      verified: boolean;
+      verificationToken: string;
+      verificationTokenExpiry: Date;
+      organizationId?: mongoose.Types.ObjectId | null;
+      approved?: boolean;
+      approvalStatus?: "pending" | "approved" | "rejected";
+    } = {
       name,
       email,
       password: hashedPassword,
-      role: role || "user",
-      organizationId:
-        role === "organizer" && organizationId
-          ? new mongoose.Types.ObjectId(organizationId)
-          : undefined,
+      role: normalizedRole,
       verified: false,
       verificationToken,
       verificationTokenExpiry,
-    });
+    };
+
+    if (
+      organizationId &&
+      mongoose.Types.ObjectId.isValid(organizationId) &&
+      normalizedRole === "user"
+    ) {
+      userPayload.organizationId = new mongoose.Types.ObjectId(organizationId);
+    }
+
+    const requiresApproval = normalizedRole === "organizer" || normalizedRole === "admin";
+
+    let resolvedOrgName =
+      typeof organizationName === "string" && organizationName.trim().length
+        ? organizationName.trim()
+        : typeof orgName === "string" && orgName.trim().length
+        ? orgName.trim()
+        : typeof payload?.organizationName === "string" && payload.organizationName.trim().length
+        ? payload.organizationName.trim()
+        : "";
+
+    let linkedOrganization: IOrganization | null = null;
+
+    if (normalizedRole === "organizer") {
+      if (!resolvedOrgName) {
+        return res.status(400).json({ message: "Organization name is required for organizer signup" });
+      }
+
+      const slugCandidate = resolvedOrgName
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+      linkedOrganization = await Organization.findOne({
+        $or: [
+          { slug: slugCandidate },
+          { name: { $regex: new RegExp(`^${resolvedOrgName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } },
+        ],
+      });
+    }
+
+    if (requiresApproval) {
+      userPayload.approved = false;
+      userPayload.approvalStatus = "pending";
+
+      if (normalizedRole === "organizer" && linkedOrganization) {
+        // linkedOrganization._id might have an ambiguous type for TS; cast safely
+        userPayload.organizationId = (linkedOrganization._id as unknown) as mongoose.Types.ObjectId;
+      } else if (
+        normalizedRole === "admin" &&
+        organizationId &&
+        mongoose.Types.ObjectId.isValid(organizationId)
+      ) {
+        userPayload.organizationId = new mongoose.Types.ObjectId(organizationId);
+      }
+    }
+
+    const newUser = new User(userPayload);
 
     await newUser.save();
 
+    if (requiresApproval) {
+      const approvalPayload: Record<string, unknown> = {};
+      if (resolvedOrgName) {
+        approvalPayload.organizationName = resolvedOrgName;
+      }
+      if (linkedOrganization) {
+        // again cast id value for storage into payload if needed
+        approvalPayload.organizationId = (linkedOrganization._id as unknown) as mongoose.Types.ObjectId;
+      } else if (
+        normalizedRole === "admin" &&
+        organizationId &&
+        mongoose.Types.ObjectId.isValid(organizationId)
+      ) {
+        approvalPayload.organizationId = new mongoose.Types.ObjectId(organizationId);
+      }
+
+      await ApprovalRequest.create({
+        requesterId: newUser._id,
+        requesterRole: normalizedRole === "organizer" ? "organizer" : "admin",
+        status: "pending",
+        payload: approvalPayload,
+      });
+    }
+
     // 5️⃣ Send verification email
-    const verificationLink = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}&email=${email}`;
+    const baseUrl =
+      (process.env.FRONTEND_URL && process.env.FRONTEND_URL.trim()) ||
+      (process.env.APP_BASE_URL && process.env.APP_BASE_URL.trim()) ||
+      "http://localhost:5173";
+    const normalizedBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+    const verificationLink = `${normalizedBase}/verify-email?token=${verificationToken}&email=${email}`;
     await sendEmail(
       email,
       "Verify your Vibio account",
@@ -67,7 +173,10 @@ export const signup = async (req: SignupRequest, res: Response) => {
 
     // 6️⃣ Respond success
     res.status(201).json({
-      message: "User created successfully. Check your email to verify your account.",
+      message: requiresApproval
+        ? "Account created — pending approval by superadmin. Check your email to verify your account."
+        : "User created successfully. Check your email to verify your account.",
+      approvalPending: requiresApproval,
     });
   } catch (err) {
     console.error("Signup Error:", err);
@@ -114,6 +223,19 @@ export const login = async (req: Request, res: Response) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
+    if (
+      (user.role === "organizer" || user.role === "admin") &&
+      user.approvalStatus !== "approved"
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Account pending approval" });
+    }
+
+    if (user.approvalStatus === "rejected") {
+      return res.status(403).json({ message: "Account approval was rejected" });
+    }
+
     if (!user.verified)
       return res.status(403).json({ message: "Email not verified" });
 
@@ -130,9 +252,13 @@ export const login = async (req: Request, res: Response) => {
       token,
       user: {
         id: user._id,
+        _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
+        organizationId: user.organizationId,
+        approvalStatus: user.approvalStatus,
+        approved: user.approved,
       },
     });
   } catch (err) {
@@ -156,6 +282,8 @@ export const getMe = async (req: AuthRequest, res: Response) => {
       role: req.user.role,
       verified: req.user.verified,
       organizationId: req.user.organizationId || null,
+      approvalStatus: req.user.approvalStatus,
+      approved: req.user.approved,
     };
 
     return res.status(200).json({ user: safeUser });

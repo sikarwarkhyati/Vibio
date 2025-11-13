@@ -9,7 +9,7 @@ const Privacy = () => {
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-4xl font-bold text-foreground mb-6">Privacy Policy</h1>
           <p className="text-lg text-muted-foreground">
-            Learn how we collect, use, and protect your personal information when you use Zevo.
+            Learn how we collect, use, and protect your personal information when you use Vibio.
           </p>
         </div>
       </main>

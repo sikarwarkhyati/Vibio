@@ -53,7 +53,7 @@ const ContactOrganizerForm: React.FC<ContactOrganizerFormProps> = ({
   const fetchOrganizerData = async () => {
     if (!organizerId) return;
     try {
-      const res = await api.get(`/organizer/${organizerId}/contact-info`);
+      const res = await api.get(`/organizers/${organizerId}/contact-info`);
       const data = res.data ?? {};
       setOrganizerData({
         name: data.name || data.org_name || organizerName || 'Event Organizer',
@@ -113,7 +113,6 @@ const ContactOrganizerForm: React.FC<ContactOrganizerFormProps> = ({
         captchaToken,
       };
 
-      // NOTE: this route does not exist yet in backend, but we won't crash UI.
       const response = await api.post('/contact/organizer', payload).catch((err) => {
         // swallow backend 404 etc and show nice toast
         throw err;

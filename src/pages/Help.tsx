@@ -9,7 +9,7 @@ const Help = () => {
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-4xl font-bold text-foreground mb-6">Help Center</h1>
           <p className="text-lg text-muted-foreground">
-            Find answers to common questions and get the support you need for using Zevo.
+            Find answers to common questions and get the support you need for using Vibio.
           </p>
         </div>
       </main>
