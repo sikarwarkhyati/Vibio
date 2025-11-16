@@ -7,7 +7,7 @@ const Blog = () => {
       <Navbar />
       <main className="container mx-auto px-4 py-16">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl font-bold text-foreground mb-6">Zevo Blog</h1>
+          <h1 className="text-4xl font-bold text-foreground mb-6">Vibio Blog</h1>
           <p className="text-lg text-muted-foreground">
             Stay updated with the latest news, event trends, and insider tips from the world of events.
           </p>

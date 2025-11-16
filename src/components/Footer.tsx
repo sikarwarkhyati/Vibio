@@ -125,7 +125,7 @@ const Footer = () => {
                   to="/dashboard" 
                   className="text-muted-foreground hover:text-primary transition-colors"
                 >
-                  Organize with Zevo
+                  Organize with Vibio
                 </Link>
               </li>
             </ul>
@@ -192,7 +192,7 @@ const Footer = () => {
         {/* Copyright */}
         <div className="border-t border-border mt-8 pt-6 text-center">
           <p className="text-sm text-muted-foreground">
-            © 2025 Zevo. All rights reserved.
+            © 2025 Vibio. All rights reserved.
           </p>
         </div>
       </div>

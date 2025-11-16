@@ -231,7 +231,7 @@ const RoleBasedAuth: React.FC = () => {
       >
         <CardHeader className="text-center space-y-2">
           <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-            Welcome to Zevo
+            Welcome to Vibio
           </CardTitle>
           <CardDescription>
             Join the ultimate event management platform
