@@ -13,6 +13,7 @@ import MyTickets from "./pages/MyTickets";
 import OrganizerDashboard from "./pages/OrganizerDashboard";
 import UserDashboard from "./pages/UserDashboard";
 import AdminDashboard from "./pages/AdminDashboard"; // <-- new
+import SuperadminRequests from "./pages/SuperadminRequests";
 
 import EventDetail from "./pages/EventDetail";
 import Profile from "./pages/Profile";
@@ -45,6 +46,7 @@ const App = () => (
 
             {/* Admin panel */}
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/superadmin/requests" element={<SuperadminRequests />} />
 
             <Route path="/event/:id" element={<EventDetail />} />
             <Route path="/profile" element={<Profile />} />

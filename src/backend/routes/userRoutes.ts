@@ -50,7 +50,10 @@ router.get("/:userId/role", async (req: AuthRequest, res: Response) => {
         .json({ message: "Forbidden: cannot view other user's role" });
     }
 
-    const userDoc = await User.findById(userId).select("role").lean();
+    const userDoc = await User.findById(userId)
+  .select("role")
+  .lean<{ role: string }>();
+
     if (!userDoc) {
       return res.status(404).json({ message: "User not found" });
     }

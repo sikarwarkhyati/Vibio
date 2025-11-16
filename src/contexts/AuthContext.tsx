@@ -9,7 +9,7 @@ import React, {
 import { useNavigate } from "react-router-dom";
 import api from "../lib/api";
 
-type Role = "user" | "organizer" | "admin";
+type Role = "user" | "organizer" | "admin" | "superadmin";
 
 interface UserType {
   id?: string;
@@ -18,6 +18,9 @@ interface UserType {
   email: string;
   role?: Role;
   verified?: boolean;
+  organizationId?: string | null;
+  approvalStatus?: "pending" | "approved" | "rejected";
+  approved?: boolean;
 }
 
 interface AuthContextType {
@@ -28,8 +31,9 @@ interface AuthContextType {
     password: string,
     fullName?: string,
     role?: Role,
-    organizationId?: string // we’ll treat orgName in the UI and pass it as orgId later if needed
-  ) => Promise<{ error: string | null }>;
+    organizationId?: string,
+    organizationName?: string
+  ) => Promise<{ error: string | null; approvalPending?: boolean; message?: string }>;
   signIn: (
     email: string,
     password: string
@@ -98,7 +102,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     password: string,
     fullName?: string,
     role: Role = "user",
-    organizationId?: string
+    organizationId?: string,
+    organizationName?: string
   ) => {
     try {
       const payload: Record<string, any> = {
@@ -108,15 +113,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         role,
       };
 
-      // only send organizationId if we actually have something that looks like an ID
-      if (role === "organizer" && organizationId) {
+      if (organizationName) {
+        payload.organizationName = organizationName;
+      }
+
+      if (organizationId) {
         payload.organizationId = organizationId;
       }
 
-      await api.post("/auth/signup", payload);
+      if (role === "organizer" || role === "admin") {
+        const orgName = organizationName;
+        if (!orgName && role === "organizer") {
+          return { error: "Organization name is required" };
+        }
+      }
+
+      const response = await api.post("/auth/signup", payload);
 
       // we do NOT log them in yet. They must verify email, then login manually.
-      return { error: null };
+      return {
+        error: null,
+        approvalPending: Boolean(response.data?.approvalPending),
+        message: response.data?.message,
+      };
     } catch (err: any) {
       console.error("Signup error:", err);
       return { error: extractErrorMessage(err) };
@@ -143,10 +162,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // figure out where to send them
       const role = (loggedInUser?.role || "user") as Role;
 
+      if (
+        (role === "organizer" || role === "admin") &&
+        loggedInUser?.approvalStatus &&
+        loggedInUser.approvalStatus !== "approved"
+      ) {
+        localStorage.removeItem("token");
+        setUser(null);
+        return { error: "Account pending approval" };
+      }
+
       let redirectPath = "/";
       if (role === "organizer") redirectPath = "/dashboard";
       else if (role === "user") redirectPath = "/user-dashboard";
       else if (role === "admin") redirectPath = "/admin-dashboard";
+      else if (role === "superadmin") redirectPath = "/superadmin/requests";
 
       navigate(redirectPath, { replace: true });
 

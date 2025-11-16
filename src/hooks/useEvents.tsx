@@ -24,7 +24,13 @@ export interface Event {
 
 // 2. Interface for the data AS IT IS USED BY THE FRONTEND (requires id)
 // We merge Event with { id: string } and omit the unnecessary _id
-type TransformedEvent = Omit<Event, '_id'> & { id: string };
+export type TransformedEvent = Omit<Event, '_id'> & { id: string };
+
+export const transformEvents = (items: Event[]): TransformedEvent[] =>
+  items.map((event) => ({
+    ...event,
+    id: event._id,
+  }));
 
 
 export const useEvents = () => {
@@ -55,49 +61,54 @@ export const useEvents = () => {
     },
   ];
 
-  const fetchEvents = async (filters?: {
-    search?: string;
-    category?: string;
-    location?: string;
-    dateFilter?: 'all' | 'today' | 'weekend' | 'next-week';
-    sortBy?: 'date' | 'popularity';
-  }) => {
-    try {
-      setLoading(true);
-      setError(null);
+  const fetchEvents = async (filters?: {
+    search?: string;
+    category?: string;
+    location?: string;
+    dateFilter?: 'all' | 'today' | 'weekend' | 'next-week';
+    sortBy?: 'date' | 'popularity';
+  }): Promise<TransformedEvent[]> => {
+    try {
+      setLoading(true);
+      setError(null);
 
-      // Assuming your API returns { events: Event[], totalEvents: number }
-      const res = await api.get('/events', { params: filters });
-      const fetchedEvents: Event[] = res.data.events || [];
+      const params: Record<string, string> = {};
+      if (filters?.search && filters.search.trim()) params.q = filters.search.trim();
+      if (filters?.category && filters.category !== 'all') params.category = filters.category;
+      if (filters?.location && filters.location.trim()) params.location = filters.location.trim();
+      if (filters?.dateFilter && filters.dateFilter !== 'all') params.date = filters.dateFilter;
+      if (filters?.sortBy) params.sort = filters.sortBy;
 
-      let rawEvents: Event[] = [];
+      const res = await api.get('/events', { params });
+      const fetchedEvents: Event[] = res.data.events || [];
 
-      if (!fetchedEvents || fetchedEvents.length === 0) {
-        rawEvents = DUMMY_EVENTS;
-      } else {
-        rawEvents = fetchedEvents;
-      }
+      let rawEvents: Event[] = [];
 
-      // CRITICAL FIX: Map the MongoDB '_id' field to 'id' for frontend components
-      const transformedEvents: TransformedEvent[] = rawEvents.map(event => ({
-        ...event,
-        id: event._id, // Renames the database key to the frontend key
-      }));
-      
-      setEvents(transformedEvents); // Sets state with the correct TransformedEvent[] type
+      if (!fetchedEvents || fetchedEvents.length === 0) {
+        rawEvents = DUMMY_EVENTS;
+      } else {
+        rawEvents = fetchedEvents;
+      }
 
-    } catch (err) {
-      const errorMessage = (err as any).response?.data?.message || (err as Error).message || 'Failed to fetch events';
-      setError(errorMessage);
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+      const transformedEvents = transformEvents(rawEvents);
+
+      setEvents(transformedEvents); // Sets state with the correct TransformedEvent[] type
+
+      return transformedEvents;
+
+    } catch (err) {
+      const errorMessage = (err as any).response?.data?.message || (err as Error).message || 'Failed to fetch events';
+      setError(errorMessage);
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const bookEvent = async (eventId: string) => {
     if (!user) {
@@ -130,14 +141,15 @@ export const useEvents = () => {
     fetchEvents();
   }, []);
 
-  return {
-    events, // This is now TransformedEvent[]
-    loading,
-    error,
-    fetchEvents,
-    bookEvent,
-    refetch: fetchEvents,
-  };
+  return {
+    events, // This is now TransformedEvent[]
+    loading,
+    error,
+    fetchEvents,
+    bookEvent,
+    refetch: fetchEvents,
+    setEvents,
+  };
 };
 
 export default useEvents;

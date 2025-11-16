@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
 
-export type UserRole = 'user' | 'organizer' | 'admin' | 'vendor' | 'sponsor';
+export type UserRole = 'user' | 'organizer' | 'admin' | 'superadmin' | 'vendor' | 'sponsor';
 
 export const useUserRole = () => {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
@@ -22,7 +22,14 @@ export const useUserRole = () => {
       setLoading(true);
       setError(null);
 
-      const res = await api.get(`/users/${user._id}/role`);
+      const id = (user as any)?._id || (user as any)?.id;
+      if (!id) {
+        setUserRole('user');
+        setLoading(false);
+        return;
+      }
+
+      const res = await api.get(`/users/${id}/role`);
       setUserRole(res.data.role || 'user');
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch user role';
@@ -33,9 +40,15 @@ export const useUserRole = () => {
     }
   }, [user]);
 
-  const hasRole = (role: UserRole) => userRole === role;
+  const hasRole = (role: UserRole | UserRole[]) => {
+    if (Array.isArray(role)) {
+      return role.includes(userRole ?? 'user');
+    }
+    return userRole === role;
+  };
   const isOrganizer = () => hasRole('organizer');
-  const isAdmin = () => hasRole('admin');
+  const isAdmin = () => hasRole(['admin', 'superadmin']);
+  const isSuperadmin = () => hasRole('superadmin');
   const isUser = () => hasRole('user');
   const isVendor = () => hasRole('vendor');
   const isSponsor = () => hasRole('sponsor');
@@ -44,5 +57,17 @@ export const useUserRole = () => {
     fetchUserRole();
   }, [fetchUserRole]);
 
-  return { userRole, loading, error, hasRole, isOrganizer, isAdmin, isUser, isVendor, isSponsor, refetch: fetchUserRole };
+  return {
+    userRole,
+    loading,
+    error,
+    hasRole,
+    isOrganizer,
+    isAdmin,
+    isSuperadmin,
+    isUser,
+    isVendor,
+    isSponsor,
+    refetch: fetchUserRole,
+  };
 };

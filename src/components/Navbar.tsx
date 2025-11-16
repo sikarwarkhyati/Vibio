@@ -1,145 +1,8 @@
-// import React from 'react';
-// import { useAuth } from '../contexts/AuthContext';
-// import { useUserRole } from '../hooks/useUserRole';
-// import { Link, useNavigate } from 'react-router-dom';
-// import { Search, User, Calendar, LogOut, Plus } from 'lucide-react';
-// import { Button } from './ui/button';
-// import { Input } from './ui/input';
-// import {
-//   DropdownMenu,
-//   DropdownMenuContent,
-//   DropdownMenuItem,
-//   DropdownMenuSeparator,
-//   DropdownMenuTrigger,
-// } from './ui/dropdown-menu';
-// import { Avatar, AvatarFallback } from './ui/avatar';
-
-// interface NavbarProps {
-//   onSearch?: (query: string) => void;
-// }
-
-// const Navbar: React.FC<NavbarProps> = ({ onSearch }) => {
-//   const { user, signOut } = useAuth();
-//   const { userRole, isOrganizer } = useUserRole();
-//   const navigate = useNavigate();
-//   const [searchQuery, setSearchQuery] = React.useState('');
-
-//   const handleSearch = (e: React.FormEvent) => {
-//     e.preventDefault();
-//     onSearch?.(searchQuery);
-//   };
-
-//   const getUserInitials = (email: string) => {
-//     return email.charAt(0).toUpperCase();
-//   };
-
-//   return (
-//     <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b shadow-sm">
-//       <div className="container mx-auto px-4">
-//         <div className="flex items-center justify-between h-16">
-//           {/* Logo */}
-//           <Link to="/" className="flex items-center space-x-2">
-//             <div className="w-8 h-8 bg-gradient-to-r from-primary to-primary-glow rounded-lg flex items-center justify-center">
-//               <span className="text-white font-bold text-lg">Z</span>
-//             </div>
-//             <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
-//               Zevo Events
-//             </span>
-//           </Link>
-
-//           {/* Search Bar - Hidden on mobile */}
-//           <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md mx-8">
-//             <div className="relative w-full">
-//               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-//               <Input
-//                 type="text"
-//                 placeholder="Search events..."
-//                 value={searchQuery}
-//                 onChange={(e) => setSearchQuery(e.target.value)}
-//                 className="pl-10 bg-muted/30 border-0 focus:bg-white"
-//               />
-//             </div>
-//           </form>
-
-//           {/* Right side */}
-//           <div className="flex items-center space-x-4">
-//             {/* Mobile search button */}
-//             <Button variant="ghost" size="sm" className="md:hidden">
-//               <Search className="h-4 w-4" />
-//             </Button>
-
-//             {/* Create Event - Only for organizers */}
-//             {isOrganizer() && (
-//               <Button 
-//                 variant="outline" 
-//                 size="sm" 
-//                 onClick={() => navigate('/dashboard')}
-//                 className="hidden sm:flex items-center space-x-2 border-primary/20 hover:bg-primary/10"
-//               >
-//                 <Plus className="h-4 w-4" />
-//                 <span>Create Event</span>
-//               </Button>
-//             )}
-
-//             {/* User Menu */}
-//             <DropdownMenu>
-//               <DropdownMenuTrigger asChild>
-//                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-//                   <Avatar className="h-8 w-8">
-//                     <AvatarFallback className="bg-primary text-white">
-//                       {user ? getUserInitials(user.email || '') : 'U'}
-//                     </AvatarFallback>
-//                   </Avatar>
-//                 </Button>
-//               </DropdownMenuTrigger>
-//               <DropdownMenuContent className="w-56 bg-white border shadow-lg" align="end">
-//                 <div className="flex items-center justify-start gap-2 p-2">
-//                   <div className="flex flex-col space-y-1 leading-none">
-//                     <p className="font-medium">{user?.email}</p>
-//                     <p className="w-[200px] truncate text-sm text-muted-foreground">
-//                       {userRole ? `${userRole.charAt(0).toUpperCase() + userRole.slice(1)} Account` : 'Loading...'}
-//                     </p>
-//                   </div>
-//                 </div>
-//                 <DropdownMenuSeparator />
-//                 <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer">
-//                   <User className="mr-2 h-4 w-4" />
-//                   Profile
-//                 </DropdownMenuItem>
-//                 <DropdownMenuItem onClick={() => navigate('/bookings')} className="cursor-pointer">
-//                   <Calendar className="mr-2 h-4 w-4" />
-//                   My Bookings
-//                 </DropdownMenuItem>
-//                 {isOrganizer() && (
-//                   <DropdownMenuItem onClick={() => navigate('/dashboard')} className="cursor-pointer">
-//                     <Plus className="mr-2 h-4 w-4" />
-//                     Organizer Dashboard
-//                   </DropdownMenuItem>
-//                 )}
-//                 <DropdownMenuSeparator />
-//                 <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive">
-//                   <LogOut className="mr-2 h-4 w-4" />
-//                   Sign out
-//                 </DropdownMenuItem>
-//               </DropdownMenuContent>
-//             </DropdownMenu>
-//           </div>
-//         </div>
-//       </div>
-//     </nav>
-//   );
-// };
-
-// export default Navbar;
-
-
-import React from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { useUserRole } from '../hooks/useUserRole';
+import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, User, Calendar, LogOut, Plus } from 'lucide-react';
+import { Calendar, LogOut, Plus, Search, User } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -148,123 +11,138 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { Avatar, AvatarFallback } from './ui/avatar';
+import SearchBar, { SearchParams } from './SearchBar';
 
 interface NavbarProps {
-  onSearch?: (query: string) => void;
+  onSearchResults?: (events: unknown[], params: SearchParams) => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onSearch }) => {
+const Navbar: React.FC<NavbarProps> = ({ onSearchResults }) => {
   const { user, signOut } = useAuth();
-  const { userRole, isOrganizer } = useUserRole();
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = React.useState('');
+  const [logoFallback, setLogoFallback] = useState(false);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSearch?.(searchQuery);
+  const dashboardPath = useMemo(() => {
+    switch (user?.role) {
+      case 'organizer':
+        return '/dashboard';
+      case 'admin':
+        return '/admin-dashboard';
+      case 'superadmin':
+        return '/superadmin/requests';
+      default:
+        return '/user-dashboard';
+    }
+  }, [user?.role]);
+
+  const getUserLabel = () => {
+    if (!user?.role) return 'Account';
+    return `${user.role.charAt(0).toUpperCase()}${user.role.slice(1)} Account`;
   };
 
-  const getUserInitials = (email: string) => {
-    return email.charAt(0).toUpperCase();
+  const renderLogo = () => {
+    if (logoFallback) {
+      return (
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg font-semibold text-primary shadow-sm">
+          V
+        </div>
+      );
+    }
+
+    return (
+      <img
+        src="/logo192.png"
+        alt="Vibio"
+        className="h-10 w-10 rounded-full object-cover"
+        onError={() => setLogoFallback(true)}
+      />
+    );
   };
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b shadow-sm">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-primary to-primary-glow rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">Z</span>
-            </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
-              Vibio Events
-            </span>
-          </Link>
+    <nav className="sticky top-0 z-50 border-b bg-white/90 backdrop-blur">
+      <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">
+        <Link to="/" className="flex items-center gap-3">
+          {renderLogo()}
+          <span className="text-xl font-semibold bg-gradient-to-r from-primary to-primary-600 bg-clip-text text-transparent">
+            Vibio Events
+          </span>
+        </Link>
 
-          {/* Search Bar - Hidden on mobile */}
-          <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md mx-8">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search events..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-muted/30 border-0 focus:bg-white"
-              />
-            </div>
-          </form>
+        <div className="hidden flex-1 md:block">
+          <SearchBar
+            variant="inline"
+            className="mx-8 max-w-xl"
+            onResults={onSearchResults}
+          />
+        </div>
 
-          {/* Right side */}
-          <div className="flex items-center space-x-4">
-            {/* Mobile search button */}
-            <Button variant="ghost" size="sm" className="md:hidden">
-              <Search className="h-4 w-4" />
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => navigate('/') }>
+            <Search className="h-4 w-4" />
+          </Button>
+
+          {user && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="hidden items-center gap-2 rounded-full border border-primary/20 bg-primary/10 text-primary hover:bg-primary/20 sm:inline-flex"
+              onClick={() => navigate(dashboardPath)}
+            >
+              <Calendar className="h-4 w-4" />
+              Dashboard
             </Button>
+          )}
 
-            {/* Create Event - Only for organizers */}
-            {isOrganizer() && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => navigate('/dashboard')}
-                className="hidden sm:flex items-center space-x-2 border-primary/20 hover:bg-primary/10"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Create Event</span>
+          {user?.role === 'organizer' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/dashboard')}
+              className="hidden items-center gap-2 border-primary/30 text-primary hover:bg-primary/10 sm:inline-flex"
+            >
+              <Plus className="h-4 w-4" />
+              Create Event
+            </Button>
+          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                <Avatar className="h-9 w-9">
+                  <AvatarFallback className="bg-primary text-white">
+                    {user?.email ? user.email.charAt(0).toUpperCase() : 'V'}
+                  </AvatarFallback>
+                </Avatar>
               </Button>
-            )}
-
-            {/* User Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-primary text-white">
-                      {user ? getUserInitials(user.email || '') : 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56 bg-white border shadow-lg" align="end">
-                <div className="flex items-center justify-start gap-2 p-2">
-                  <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium">{user?.email}</p>
-                    <p className="w-[200px] truncate text-sm text-muted-foreground">
-                      {userRole ? `${userRole.charAt(0).toUpperCase() + userRole.slice(1)} Account` : 'Loading...'}
-                    </p>
-                  </div>
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer">
-                  <User className="mr-2 h-4 w-4" />
-                  Profile
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-60" align="end">
+              <div className="flex flex-col gap-1 p-3">
+                <p className="font-medium">{user?.email || 'Guest'}</p>
+                <p className="text-sm text-muted-foreground">{getUserLabel()}</p>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer">
+                <User className="mr-2 h-4 w-4" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/bookings')} className="cursor-pointer">
+                <Calendar className="mr-2 h-4 w-4" />
+                My Bookings
+              </DropdownMenuItem>
+              {user?.role === 'organizer' && (
+                <DropdownMenuItem onClick={() => navigate('/dashboard')} className="cursor-pointer">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Organizer Dashboard
                 </DropdownMenuItem>
-
-                {/* Hide My Bookings for organizers */}
-                <DropdownMenuItem
-                  onClick={() => navigate('/bookings')}
-                  className={`cursor-pointer ${isOrganizer() ? 'hidden' : ''}`}
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  My Bookings
-                </DropdownMenuItem>
-
-                {isOrganizer() && (
-                  <DropdownMenuItem onClick={() => navigate('/dashboard')} className="cursor-pointer">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Organizer Dashboard
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive">
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </nav>

@@ -23,6 +23,8 @@ interface EventCardProps {
   onBookNow: (eventId: string) => void;
 }
 
+const FALLBACK_IMAGE_SRC = '/placeholder.svg';
+
 const EventCard: React.FC<EventCardProps> = ({
   id,
   title,
@@ -79,6 +81,14 @@ const EventCard: React.FC<EventCardProps> = ({
             <img
               src={imageUrl}
               alt={title}
+              loading="lazy"
+              onError={(event) => {
+                const target = event.currentTarget;
+                if (!target.dataset.fallbackApplied) {
+                  target.dataset.fallbackApplied = '1';
+                  target.src = FALLBACK_IMAGE_SRC;
+                }
+              }}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
           ) : (

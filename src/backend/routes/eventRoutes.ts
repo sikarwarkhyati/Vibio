@@ -27,14 +27,26 @@ router.use(authenticate);
 
 // Organizer: view their own events
 // @ts-ignore
-router.get("/organizer", authorizeRoles("organizer", "admin"), getOrganizerEvents);
+router.get(
+  "/organizer",
+  authorizeRoles("organizer", "admin", "superadmin"),
+  getOrganizerEvents
+);
 
 // Admin-only management routes
 // @ts-ignore
-router.post("/", authorizeRoles("admin"), createEvent);
+router.post("/", authorizeRoles("admin", "organizer", "superadmin"), createEvent);
 // @ts-ignore
-router.put("/:eventId", authorizeRoles("admin"), updateEvent);
+router.put(
+  "/:eventId",
+  authorizeRoles("admin", "organizer", "superadmin"),
+  updateEvent
+);
 // @ts-ignore
-router.delete("/:eventId", authorizeRoles("admin"), deleteEvent);
+router.delete(
+  "/:eventId",
+  authorizeRoles("admin", "organizer", "superadmin"),
+  deleteEvent
+);
 
 export default router;

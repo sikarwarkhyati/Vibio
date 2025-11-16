@@ -64,7 +64,7 @@ const RoleBasedAuth: React.FC = () => {
     email: "",
     password: "",
     fullName: "",
-    role: "user" as "user" | "organizer",
+    role: "user" as "user" | "organizer" | "admin",
     orgName: "",
   });
 
@@ -138,7 +138,12 @@ const RoleBasedAuth: React.FC = () => {
       return;
     }
 
-    if (signUpData.role === "organizer" && !signUpData.orgName.trim()) {
+    const normalizedOrgName = signUpData.orgName.trim();
+
+    if (
+      (signUpData.role === "organizer" || signUpData.role === "admin") &&
+      !normalizedOrgName
+    ) {
       toast({
         title: "Organization Name Required",
         description: "Please enter your organization / brand name.",
@@ -151,12 +156,13 @@ const RoleBasedAuth: React.FC = () => {
 
     try {
       // Note: We don't have a real organizationId yet, so we pass undefined.
-      const { error } = await signUp(
+      const { error, approvalPending, message } = await signUp(
         signUpData.email,
         signUpData.password,
         signUpData.fullName,
         signUpData.role,
-        undefined
+        undefined,
+        normalizedOrgName
       );
 
       if (error) {
@@ -175,9 +181,14 @@ const RoleBasedAuth: React.FC = () => {
         });
       } else {
         toast({
-          title: "Account created!",
+          title: approvalPending
+            ? "Account created — pending approval by superadmin."
+            : "Account created!",
           description:
-            "Please check your email and verify your account before signing in.",
+            message ||
+            (approvalPending
+              ? "Please verify your email. You will be notified by email when approved."
+              : "Please check your email and verify your account before signing in."),
         });
 
         // success: reset form
@@ -311,7 +322,7 @@ const RoleBasedAuth: React.FC = () => {
                   <Label htmlFor="signup-role">Account Type</Label>
                   <Select
                     value={signUpData.role}
-                    onValueChange={(value: "user" | "organizer") =>
+                    onValueChange={(value: "user" | "organizer" | "admin") =>
                       setSignUpData({ ...signUpData, role: value })
                     }
                   >
@@ -329,6 +340,12 @@ const RoleBasedAuth: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <Building2 className="h-4 w-4" />
                           Event Organizer
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="admin">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4" />
+                          Admin
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -353,8 +370,8 @@ const RoleBasedAuth: React.FC = () => {
                   />
                 </div>
 
-                {/* ORG NAME (organizer only) */}
-                {signUpData.role === "organizer" && (
+                {/* ORG NAME (organizer/admin only) */}
+                {(signUpData.role === "organizer" || signUpData.role === "admin") && (
                   <div className="space-y-2">
                     <Label htmlFor="signup-org">
                       Organization / Brand Name
@@ -430,6 +447,8 @@ const RoleBasedAuth: React.FC = () => {
                     ? "Creating account..."
                     : signUpData.role === "organizer"
                     ? "Create Organizer Account"
+                    : signUpData.role === "admin"
+                    ? "Create Admin Account"
                     : "Create User Account"}
                 </Button>
 
